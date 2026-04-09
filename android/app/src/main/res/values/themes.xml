@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ОДНА простая тема для Activity -->
+    <style name="Theme.Mockly" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <!-- Белый фон окна, чтобы не было чёрной вспышки при переходах -->
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+
+</resources>
