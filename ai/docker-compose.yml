@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    container_name: mockly-app
+    ports:
+      - "8000:8000" 
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - AUDIO_BASE_URL=http://audio:8000
+    depends_on:
+      - ollama
+      - audio
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: mockly-ollama
+    ports:
+      - "11434:11434"     
+    volumes:
+      - ollama_data:/root/.ollama
+
+  audio:
+    image: python:3.11-slim
+    container_name: mockly-audio
+    working_dir: /audio
+    command: ["python", "-m", "http.server", "8000"]
+    volumes:
+      - ./audio:/audio   
+    ports:
+      - "8001:8000"      
+
+volumes:
+  ollama_data:
