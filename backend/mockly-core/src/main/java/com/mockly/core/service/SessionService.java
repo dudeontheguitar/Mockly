@@ -6,6 +6,7 @@ import com.mockly.core.dto.session.SessionResponse;
 import com.mockly.core.exception.BadRequestException;
 import com.mockly.core.exception.ResourceNotFoundException;
 import com.mockly.core.mapper.SessionMapper;
+import com.mockly.data.entity.Profile;
 import com.mockly.data.entity.Session;
 import com.mockly.data.entity.SessionParticipant;
 import com.mockly.data.enums.ParticipantRole;
@@ -56,6 +57,10 @@ public class SessionService {
     public SessionResponse createSession(UUID userId, CreateSessionRequest request) {
         log.info("Creating session for user: {} with interviewer: {}", userId, request.interviewerId());
 
+        if (userId.equals(request.interviewerId())) {
+            throw new BadRequestException("Candidate and interviewer must be different users");
+        }
+
         // Validate users exist
         if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User not found: " + userId);
@@ -63,6 +68,19 @@ public class SessionService {
 
         if (!userRepository.existsById(request.interviewerId())) {
             throw new ResourceNotFoundException("Interviewer not found: " + request.interviewerId());
+        }
+
+        // Validate role model: creator must be candidate, selected user must be interviewer
+        Profile creatorProfile = profileRepository.findByUserId(userId)
+                .orElseThrow(() -> new BadRequestException("Profile not found for user: " + userId));
+        if (creatorProfile.getRole() != Profile.ProfileRole.CANDIDATE) {
+            throw new BadRequestException("Only users with CANDIDATE role can create interview sessions");
+        }
+
+        Profile interviewerProfile = profileRepository.findByUserId(request.interviewerId())
+                .orElseThrow(() -> new BadRequestException("Profile not found for interviewer: " + request.interviewerId()));
+        if (interviewerProfile.getRole() != Profile.ProfileRole.INTERVIEWER) {
+            throw new BadRequestException("Selected user must have INTERVIEWER role");
         }
 
         // Validation: Check if user already has an active session
@@ -238,6 +256,10 @@ public class SessionService {
         session.setEndsAt(OffsetDateTime.now());
         sessionRepository.save(session);
 
+        if (session.getRoomId() != null && !session.getRoomId().isBlank()) {
+            liveKitService.deleteRoom(session.getRoomId());
+        }
+
         // Mark all participants as left
         List<SessionParticipant> participants = participantRepository.findBySessionId(sessionId);
         for (SessionParticipant participant : participants) {
@@ -402,4 +424,3 @@ public class SessionService {
                 });
     }
 }
-

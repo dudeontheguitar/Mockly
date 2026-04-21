@@ -52,6 +52,16 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: mockly-livekit
+    command: --dev --bind 0.0.0.0
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+
   app:
     build:
       context: .
@@ -80,6 +90,20 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
+      LIVEKIT_URL: ${LIVEKIT_URL:-ws://localhost:7880}
+      LIVEKIT_API_URL: ${LIVEKIT_API_URL:-http://livekit:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      LIVEKIT_WEBHOOK_SECRET: ${LIVEKIT_WEBHOOK_SECRET:-secret}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      livekit:
+        condition: service_started
 
 volumes:
   postgres_data:

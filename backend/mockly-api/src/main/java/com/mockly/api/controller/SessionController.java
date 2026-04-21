@@ -5,11 +5,10 @@ import com.mockly.core.dto.session.CreateSessionRequest;
 import com.mockly.core.dto.session.LiveKitTokenResponse;
 import com.mockly.core.dto.session.SessionListResponse;
 import com.mockly.core.dto.session.SessionResponse;
+import com.mockly.core.exception.BadRequestException;
 import com.mockly.core.service.LiveKitService;
 import com.mockly.core.service.SessionService;
-import com.mockly.data.entity.Session;
 import com.mockly.data.enums.SessionStatus;
-import com.mockly.data.repository.SessionRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,7 +32,6 @@ public class SessionController {
     private final SessionService sessionService;
     private final LiveKitService liveKitService;
     private final SessionEventPublisher eventPublisher;
-    private final SessionRepository sessionRepository;
 
     @PostMapping
     @Operation(
@@ -45,13 +43,7 @@ public class SessionController {
             @Valid @RequestBody CreateSessionRequest request) {
         UUID userId = UUID.fromString(authentication.getName());
         SessionResponse response = sessionService.createSession(userId, request);
-        
-        // Publish WebSocket event
-        Session session = sessionRepository.findById(response.id())
-                .orElse(null);
-        if (session != null) {
-            eventPublisher.publishSessionCreated(session, response);
-        }
+        eventPublisher.publishSessionCreated(response.id(), response.createdBy(), response);
         
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -66,16 +58,7 @@ public class SessionController {
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authentication.getName());
         SessionResponse response = sessionService.joinSession(id, userId);
-        
-        // Publish WebSocket event
-        Session session = sessionRepository.findById(id).orElse(null);
-        if (session != null) {
-            session.getParticipants().stream()
-                    .filter(p -> p.getUserId().equals(userId))
-                    .findFirst()
-                    .ifPresent(participant -> 
-                            eventPublisher.publishParticipantJoined(session, participant, response));
-        }
+        eventPublisher.publishParticipantJoined(id, userId, response);
         
         return ResponseEntity.ok(response);
     }
@@ -90,13 +73,8 @@ public class SessionController {
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authentication.getName());
         sessionService.leaveSession(id, userId);
-        
-        // Publish WebSocket event
-        Session session = sessionRepository.findById(id).orElse(null);
-        if (session != null) {
-            SessionResponse response = sessionService.getSession(id, userId);
-            eventPublisher.publishParticipantLeft(session, userId, response);
-        }
+        SessionResponse response = sessionService.getSession(id, userId);
+        eventPublisher.publishParticipantLeft(id, userId, response);
         
         return ResponseEntity.ok().build();
     }
@@ -111,13 +89,8 @@ public class SessionController {
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authentication.getName());
         sessionService.endSession(id, userId);
-        
-        // Publish WebSocket event
-        Session session = sessionRepository.findById(id).orElse(null);
-        if (session != null) {
-            SessionResponse response = sessionService.getSession(id, userId);
-            eventPublisher.publishSessionEnded(session, response);
-        }
+        SessionResponse response = sessionService.getSession(id, userId);
+        eventPublisher.publishSessionEnded(id, response);
         
         return ResponseEntity.ok().build();
     }
@@ -171,10 +144,13 @@ public class SessionController {
             Authentication authentication,
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authentication.getName());
-        
+
         // Verify user has access to session
-        sessionService.getSession(id, userId);
-        
+        SessionResponse session = sessionService.getSession(id, userId);
+        if (session.status() == SessionStatus.ENDED || session.status() == SessionStatus.CANCELED) {
+            throw new BadRequestException("Cannot generate LiveKit token for ended or canceled session");
+        }
+
         // Get user display name from profile
         String displayName = sessionService.getUserDisplayName(userId);
         
@@ -182,4 +158,3 @@ public class SessionController {
         return ResponseEntity.ok(response);
     }
 }
-

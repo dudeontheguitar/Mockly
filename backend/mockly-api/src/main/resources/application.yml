@@ -95,10 +95,11 @@ minio:
   bucket-name: ${MINIO_BUCKET:mockly-artifacts}
 
 livekit:
-  url: ${LIVEKIT_URL:http://localhost:7880}
-  api-key: ${LIVEKIT_API_KEY:}
-  api-secret: ${LIVEKIT_API_SECRET:}
-  webhook-secret: ${LIVEKIT_WEBHOOK_SECRET:}
+  url: ${LIVEKIT_URL:ws://localhost:7880}
+  api-url: ${LIVEKIT_API_URL:}
+  api-key: ${LIVEKIT_API_KEY:devkey}
+  api-secret: ${LIVEKIT_API_SECRET:secret}
+  webhook-secret: ${LIVEKIT_WEBHOOK_SECRET:${LIVEKIT_API_SECRET:secret}}
 
 ml:
   service:
