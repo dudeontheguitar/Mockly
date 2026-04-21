@@ -31,3 +31,4 @@ class EvaluateResponse(BaseModel):
     summary: str
     recommendations: str
     scores: Optional[Scores] = None
+    transcript: Optional[str] = None

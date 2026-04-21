@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeUnit;
@@ -61,11 +63,12 @@ public class MinIOService {
      */
     public String generatePresignedUploadUrl(String objectName, int expiryTime) {
         try {
+            String normalizedObjectName = normalizeObjectName(objectName);
             return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.PUT)
                             .bucket(bucketName)
-                            .object(objectName)
+                            .object(normalizedObjectName)
                             .expiry(expiryTime, TimeUnit.SECONDS)
                             .build()
             );
@@ -86,11 +89,12 @@ public class MinIOService {
      */
     public String generatePresignedDownloadUrl(String objectName, int expiryTime) {
         try {
+            String normalizedObjectName = normalizeObjectName(objectName);
             return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
                             .bucket(bucketName)
-                            .object(objectName)
+                            .object(normalizedObjectName)
                             .expiry(expiryTime, TimeUnit.SECONDS)
                             .build()
             );
@@ -110,9 +114,10 @@ public class MinIOService {
      */
     public boolean objectExists(String objectName) {
         try {
+            String normalizedObjectName = normalizeObjectName(objectName);
             minioClient.statObject(StatObjectArgs.builder()
                     .bucket(bucketName)
-                    .object(objectName)
+                    .object(normalizedObjectName)
                     .build());
             return true;
         } catch (ErrorResponseException e) {
@@ -137,9 +142,10 @@ public class MinIOService {
      */
     public StatObjectResponse getObjectMetadata(String objectName) {
         try {
+            String normalizedObjectName = normalizeObjectName(objectName);
             return minioClient.statObject(StatObjectArgs.builder()
                     .bucket(bucketName)
-                    .object(objectName)
+                    .object(normalizedObjectName)
                     .build());
         } catch (ErrorResponseException | InsufficientDataException | InternalException |
                  InvalidKeyException | InvalidResponseException | IOException |
@@ -151,6 +157,39 @@ public class MinIOService {
 
     public String getBucketName() {
         return bucketName;
+    }
+
+    /**
+     * Normalize stored object reference to a pure object key.
+     * Supports:
+     * - sessions/{sessionId}/...
+     * - {bucket}/sessions/{sessionId}/...
+     * - http(s)://host/{bucket}/sessions/{sessionId}/...
+     */
+    public String normalizeObjectName(String objectReference) {
+        if (objectReference == null || objectReference.isBlank()) {
+            throw new IllegalArgumentException("Object reference cannot be blank");
+        }
+
+        String normalized = objectReference.trim();
+
+        if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+            try {
+                URI uri = new URI(normalized);
+                normalized = uri.getPath();
+            } catch (URISyntaxException e) {
+                log.warn("Failed to parse object URL '{}', using raw value", objectReference);
+            }
+        }
+
+        normalized = normalized.replaceFirst("^/+", "");
+
+        String bucketPrefix = bucketName + "/";
+        if (normalized.startsWith(bucketPrefix)) {
+            normalized = normalized.substring(bucketPrefix.length());
+        }
+
+        return normalized;
     }
 }
 

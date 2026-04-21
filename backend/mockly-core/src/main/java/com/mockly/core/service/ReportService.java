@@ -5,22 +5,18 @@ import com.mockly.core.exception.BadRequestException;
 import com.mockly.core.exception.ResourceNotFoundException;
 import com.mockly.data.entity.Artifact;
 import com.mockly.data.entity.Report;
-import com.mockly.data.entity.Transcript;
 import com.mockly.data.enums.ArtifactType;
 import com.mockly.data.repository.ArtifactRepository;
 import com.mockly.data.repository.ReportRepository;
 import com.mockly.data.repository.SessionRepository;
-import com.mockly.data.repository.TranscriptRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
 
+import java.util.Comparator;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Service for managing reports.
@@ -34,10 +30,7 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final SessionRepository sessionRepository;
     private final ArtifactRepository artifactRepository;
-    private final TranscriptRepository transcriptRepository;
-    private final MLServiceClient mlServiceClient;
-    private final MinIOService minIOService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ReportProcessingService reportProcessingService;
 
     /**
      * Trigger report generation for a session.
@@ -47,7 +40,6 @@ public class ReportService {
      * @param userId User ID (for authorization)
      * @return Report response
      */
-    @Transactional
     public ReportResponse triggerReportGeneration(UUID sessionId, UUID userId) {
         log.info("Triggering report generation for session: {}", sessionId);
 
@@ -55,114 +47,42 @@ public class ReportService {
         sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
 
-        // Check if report already exists
-        Optional<Report> existingReport = reportRepository.findBySessionId(sessionId);
-        if (existingReport.isPresent()) {
-            Report report = existingReport.get();
-            if (report.getStatus() == Report.ReportStatus.PROCESSING || 
-                report.getStatus() == Report.ReportStatus.READY) {
-                log.info("Report already exists and is {} for session: {}", report.getStatus(), sessionId);
-                return toResponse(report);
-            }
-            // If FAILED, allow retry by updating status
-            if (report.getStatus() == Report.ReportStatus.FAILED) {
-                report.setStatus(Report.ReportStatus.PENDING);
-                report.setErrorMessage(null);
-                report = reportRepository.save(report);
-            }
-        } else {
-            // Create new report
-            Report report = Report.builder()
-                    .sessionId(sessionId)
-                    .status(Report.ReportStatus.PENDING)
-                    .build();
-            report = reportRepository.save(report);
-        }
+        Artifact artifact = findLatestAudioArtifact(sessionId)
+                .orElseThrow(() -> new BadRequestException(
+                        "No audio artifact found for session. Please upload an audio file first."));
 
-        // Find audio artifact (prefer AUDIO_MIXED, fallback to others)
-        Artifact artifact = artifactRepository.findFirstBySessionIdAndType(sessionId, ArtifactType.AUDIO_MIXED)
-                .orElseGet(() -> artifactRepository.findBySessionId(sessionId).stream()
-                        .filter(a -> a.getType() == ArtifactType.AUDIO_LEFT || 
-                                   a.getType() == ArtifactType.AUDIO_RIGHT)
-                        .findFirst()
-                        .orElseThrow(() -> new BadRequestException(
-                                "No audio artifact found for session. Please upload an audio file first.")));
-
-        // Start async processing
-        processReportAsync(sessionId, artifact.getId());
-
-        // Return current report status
-        Report report = reportRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Report not found after creation"));
-        return toResponse(report);
+        return triggerReportGenerationForArtifact(sessionId, userId, artifact.getId());
     }
 
     /**
-     * Process report asynchronously.
-     * Fetches artifact, sends to ML service, saves results.
+     * Trigger report generation for a specific artifact.
      */
-    @Async("reportProcessingExecutor")
-    @Transactional
-    public CompletableFuture<Void> processReportAsync(UUID sessionId, UUID artifactId) {
-        log.info("Starting async report processing for session: {}, artifact: {}", sessionId, artifactId);
+    public ReportResponse triggerReportGenerationForArtifact(UUID sessionId, UUID userId, UUID artifactId) {
+        log.info("Triggering report generation for session: {}, artifact: {}", sessionId, artifactId);
 
-        Report report = reportRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Report not found: " + sessionId));
+        sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
 
-        try {
-            // Update status to PROCESSING
-            report.setStatus(Report.ReportStatus.PROCESSING);
-            report = reportRepository.save(report);
+        Artifact artifact = artifactRepository.findById(artifactId)
+                .orElseThrow(() -> new ResourceNotFoundException("Artifact not found: " + artifactId));
 
-            // Get artifact
-            Artifact artifact = artifactRepository.findById(artifactId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Artifact not found: " + artifactId));
-
-            // Generate download URL for artifact
-            String artifactUrl = minIOService.generatePresignedDownloadUrl(artifact.getStorageUrl(), 3600);
-
-            // Call ML service
-            var mlRequest = new com.mockly.core.dto.ml.MLProcessRequest(
-                    sessionId,
-                    artifactId,
-                    artifactUrl,
-                    artifact.getType().name()
-            );
-
-            var mlResponse = mlServiceClient.processArtifact(mlRequest);
-
-            // Save transcript if provided
-            if (mlResponse.transcript() != null && !mlResponse.transcript().isEmpty()) {
-                Transcript transcript = Transcript.builder()
-                        .sessionId(sessionId)
-                        .source(Transcript.TranscriptSource.MIXED)
-                        .text(mlResponse.transcript())
-                        .build();
-                transcriptRepository.save(transcript);
-                log.info("Saved transcript for session: {}", sessionId);
-            }
-
-            // Update report with results
-            report.setMetrics(mlResponse.metrics());
-            report.setSummary(mlResponse.summary());
-            report.setRecommendations(mlResponse.recommendations());
-            report.setStatus(Report.ReportStatus.READY);
-            report.setErrorMessage(null);
-            report = reportRepository.save(report);
-
-            log.info("Report processing completed successfully for session: {}", sessionId);
-
-            // Publish event for report ready
-            eventPublisher.publishEvent(new ReportReadyEvent(sessionId, toResponse(report)));
-
-        } catch (Exception e) {
-            log.error("Report processing failed for session: {}", sessionId, e);
-            report.setStatus(Report.ReportStatus.FAILED);
-            report.setErrorMessage(e.getMessage());
-            reportRepository.save(report);
+        if (!artifact.getSessionId().equals(sessionId)) {
+            throw new BadRequestException("Artifact does not belong to this session");
+        }
+        if (!isAudioArtifact(artifact.getType())) {
+            throw new BadRequestException("Only audio artifacts can be processed for report generation");
         }
 
-        return CompletableFuture.completedFuture(null);
+        ReportPreparation preparation = prepareReportForProcessing(sessionId);
+        Report report = preparation.report();
+        if (preparation.shouldProcess()) {
+            report.setStatus(Report.ReportStatus.PROCESSING);
+            report.setErrorMessage(null);
+            report = reportRepository.save(report);
+            reportProcessingService.processReportAsync(sessionId, artifact.getId());
+        }
+
+        return toResponse(report);
     }
 
     /**
@@ -172,12 +92,23 @@ public class ReportService {
      * @param userId User ID (for authorization)
      * @return Report response
      */
-    @Transactional(readOnly = true)
     public ReportResponse getReport(UUID sessionId, UUID userId) {
-        Report report = reportRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Report not found for session: " + sessionId));
+        sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
 
-        return toResponse(report);
+        Optional<Report> report = reportRepository.findBySessionId(sessionId);
+        if (report.isPresent()) {
+            return toResponse(report.get());
+        }
+
+        Optional<Artifact> latestAudioArtifact = findLatestAudioArtifact(sessionId);
+        if (latestAudioArtifact.isPresent()) {
+            return triggerReportGenerationForArtifact(sessionId, userId, latestAudioArtifact.get().getId());
+        }
+
+        throw new ResourceNotFoundException(
+                "Report not found for session: " + sessionId + ". Upload audio first to start processing."
+        );
     }
 
     /**
@@ -197,9 +128,63 @@ public class ReportService {
         );
     }
 
-    /**
-     * Event published when report processing is complete.
-     */
-    public record ReportReadyEvent(UUID sessionId, ReportResponse report) {}
+    private ReportPreparation prepareReportForProcessing(UUID sessionId) {
+        Optional<Report> existingReport = reportRepository.findBySessionId(sessionId);
+        if (existingReport.isPresent()) {
+            Report report = existingReport.get();
+            if (report.getStatus() == Report.ReportStatus.PROCESSING || report.getStatus() == Report.ReportStatus.READY) {
+                log.info("Report already exists and is {} for session: {}", report.getStatus(), sessionId);
+                return new ReportPreparation(report, false);
+            }
+
+            report.setStatus(Report.ReportStatus.PENDING);
+            report.setErrorMessage(null);
+            report = reportRepository.save(report);
+            return new ReportPreparation(report, true);
+        }
+
+        Report report = Report.builder()
+                .sessionId(sessionId)
+                .status(Report.ReportStatus.PENDING)
+                .build();
+        try {
+            report = reportRepository.save(report);
+            return new ReportPreparation(report, true);
+        } catch (DataIntegrityViolationException e) {
+            Report existing = reportRepository.findBySessionId(sessionId)
+                    .orElseThrow(() -> e);
+            if (existing.getStatus() == Report.ReportStatus.PROCESSING || existing.getStatus() == Report.ReportStatus.READY) {
+                return new ReportPreparation(existing, false);
+            }
+            existing.setStatus(Report.ReportStatus.PENDING);
+            existing.setErrorMessage(null);
+            existing = reportRepository.save(existing);
+            return new ReportPreparation(existing, true);
+        }
+    }
+
+    private Optional<Artifact> findLatestAudioArtifact(UUID sessionId) {
+        Comparator<Artifact> byCreatedAt = Comparator.comparing(Artifact::getCreatedAt);
+        var artifacts = artifactRepository.findBySessionId(sessionId);
+
+        Optional<Artifact> mixed = artifacts.stream()
+                .filter(a -> a.getType() == ArtifactType.AUDIO_MIXED)
+                .max(byCreatedAt);
+        if (mixed.isPresent()) {
+            return mixed;
+        }
+
+        return artifacts.stream()
+                .filter(a -> a.getType() == ArtifactType.AUDIO_LEFT || a.getType() == ArtifactType.AUDIO_RIGHT)
+                .max(byCreatedAt);
+    }
+
+    private boolean isAudioArtifact(ArtifactType type) {
+        return type == ArtifactType.AUDIO_MIXED
+                || type == ArtifactType.AUDIO_LEFT
+                || type == ArtifactType.AUDIO_RIGHT;
+    }
+
+    private record ReportPreparation(Report report, boolean shouldProcess) {}
 }
 

@@ -4,6 +4,7 @@ import com.mockly.core.dto.artifact.CompleteUploadRequest;
 import com.mockly.core.dto.artifact.RequestUploadRequest;
 import com.mockly.core.dto.artifact.RequestUploadResponse;
 import com.mockly.core.dto.session.ArtifactResponse;
+import com.mockly.core.event.ArtifactUploadCompletedEvent;
 import com.mockly.core.exception.BadRequestException;
 import com.mockly.core.exception.ResourceNotFoundException;
 import com.mockly.data.entity.Artifact;
@@ -11,6 +12,7 @@ import com.mockly.data.repository.ArtifactRepository;
 import com.mockly.data.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,7 @@ public class ArtifactService {
     private final ArtifactRepository artifactRepository;
     private final SessionRepository sessionRepository;
     private final MinIOService minIOService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Request upload URL for an artifact.
@@ -79,7 +82,7 @@ public class ArtifactService {
                 .id(artifactId)
                 .sessionId(sessionId)
                 .type(request.type())
-                .storageUrl(objectName) // Will be full URL after upload
+                .storageUrl(objectName)
                 .sizeBytes(request.fileSizeBytes())
                 .build();
 
@@ -126,24 +129,29 @@ public class ArtifactService {
         }
 
         // Verify file was uploaded to MinIO
-        if (!minIOService.objectExists(artifact.getStorageUrl())) {
+        String objectName = minIOService.normalizeObjectName(artifact.getStorageUrl());
+        if (!minIOService.objectExists(objectName)) {
             throw new BadRequestException("File was not uploaded to storage. Please upload the file first.");
         }
 
         // Get actual file size from MinIO
-        var metadata = minIOService.getObjectMetadata(artifact.getStorageUrl());
+        var metadata = minIOService.getObjectMetadata(objectName);
         long actualSize = metadata.size();
 
         // Update artifact metadata
         artifact.setSizeBytes(actualSize);
         artifact.setDurationSec(request.durationSec());
-
-        // Update storage URL to include full path
-        String fullStorageUrl = String.format("%s/%s", minIOService.getBucketName(), artifact.getStorageUrl());
-        artifact.setStorageUrl(fullStorageUrl);
+        artifact.setStorageUrl(objectName);
 
         artifact = artifactRepository.save(artifact);
         log.info("Completed upload for artifact: {}", artifactId);
+
+        eventPublisher.publishEvent(new ArtifactUploadCompletedEvent(
+                sessionId,
+                artifact.getId(),
+                artifact.getType(),
+                userId
+        ));
 
         return toResponse(artifact);
     }

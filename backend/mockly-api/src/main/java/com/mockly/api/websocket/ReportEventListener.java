@@ -1,6 +1,6 @@
 package com.mockly.api.websocket;
 
-import com.mockly.core.service.ReportService;
+import com.mockly.core.event.ReportReadyEvent;
 import com.mockly.data.entity.Session;
 import com.mockly.data.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +20,7 @@ public class ReportEventListener {
     private final SessionRepository sessionRepository;
 
     @EventListener
-    public void handleReportReady(ReportService.ReportReadyEvent event) {
+    public void handleReportReady(ReportReadyEvent event) {
         log.info("Report ready event received for session: {}", event.sessionId());
 
         Session session = sessionRepository.findById(event.sessionId()).orElse(null);

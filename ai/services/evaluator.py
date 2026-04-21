@@ -54,6 +54,7 @@ def evaluate_request(req: EvaluateRequest) -> EvaluateResponse:
             summary="No transcript detected.",
             recommendations="Please provide an audio or text interview answer.",
             scores=None,
+            transcript=None,
         )
 
     similarity = calculate_similarity(transcript, REFERENCE_TEXT) 
@@ -104,4 +105,5 @@ def evaluate_request(req: EvaluateRequest) -> EvaluateResponse:
         ),
         speechAnalysis=speech,
         scores=scores,
+        transcript=transcript,
     )
