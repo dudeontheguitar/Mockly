@@ -100,6 +100,14 @@ livekit:
   api-key: ${LIVEKIT_API_KEY:devkey}
   api-secret: ${LIVEKIT_API_SECRET:secret}
   webhook-secret: ${LIVEKIT_WEBHOOK_SECRET:${LIVEKIT_API_SECRET:secret}}
+  egress:
+    auto-record: ${LIVEKIT_EGRESS_AUTO_RECORD:true}
+    s3-endpoint: ${LIVEKIT_EGRESS_S3_ENDPOINT:${MINIO_ENDPOINT:http://localhost:19000}}
+    s3-region: ${LIVEKIT_EGRESS_S3_REGION:}
+    s3-force-path-style: ${LIVEKIT_EGRESS_S3_FORCE_PATH_STYLE:true}
+    file-type: ${LIVEKIT_EGRESS_FILE_TYPE:MP3}
+    webhook-url: ${LIVEKIT_EGRESS_WEBHOOK_URL:http://app:8080/api/webhooks/livekit}
+    webhook-signing-key: ${LIVEKIT_EGRESS_WEBHOOK_SIGNING_KEY:${LIVEKIT_API_KEY:devkey}}
 
 ml:
   service:

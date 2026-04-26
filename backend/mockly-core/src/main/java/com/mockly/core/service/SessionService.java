@@ -44,6 +44,7 @@ public class SessionService {
     private final ProfileRepository profileRepository;
     private final SessionMapper sessionMapper;
     private final LiveKitService liveKitService;
+    private final ReportService reportService;
 
     /**
      * Create a new interview session.
@@ -192,6 +193,8 @@ public class SessionService {
             participantRepository.save(participant);
         }
 
+        maybeStartSessionRecording(session);
+
         log.info("User {} successfully joined session {}", userId, sessionId);
 
         // Reload session with participants
@@ -212,6 +215,9 @@ public class SessionService {
     public void leaveSession(UUID sessionId, UUID userId) {
         log.info("User {} leaving session {}", userId, sessionId);
 
+        Session session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
+
         SessionParticipant participant = participantRepository
                 .findBySessionIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Participant not found in session"));
@@ -220,6 +226,11 @@ public class SessionService {
             participant.setLeftAt(OffsetDateTime.now());
             participantRepository.save(participant);
             log.info("User {} left session {}", userId, sessionId);
+
+            long activeParticipants = participantRepository.findBySessionIdAndLeftAtIsNull(sessionId).size();
+            if (activeParticipants == 0) {
+                maybeStopSessionRecording(session, "last participant left");
+            }
         } else {
             log.info("User {} already left session {}", userId, sessionId);
         }
@@ -256,6 +267,8 @@ public class SessionService {
         session.setEndsAt(OffsetDateTime.now());
         sessionRepository.save(session);
 
+        maybeStopSessionRecording(session, "session ended");
+
         if (session.getRoomId() != null && !session.getRoomId().isBlank()) {
             liveKitService.deleteRoom(session.getRoomId());
         }
@@ -269,7 +282,56 @@ public class SessionService {
             }
         }
 
+        try {
+            reportService.triggerReportGeneration(sessionId, userId);
+            log.info("Auto-triggered report generation on session end: {}", sessionId);
+        } catch (BadRequestException | ResourceNotFoundException e) {
+            log.info("Skipping auto report trigger for session {}: {}", sessionId, e.getMessage());
+        } catch (Exception e) {
+            log.error("Failed to auto-trigger report generation for session {}", sessionId, e);
+        }
+
         log.info("Session {} ended successfully", sessionId);
+    }
+
+    private void maybeStartSessionRecording(Session session) {
+        if (!liveKitService.isEgressAutoRecordEnabled()) {
+            return;
+        }
+        if (session.getRecordingId() != null && !session.getRecordingId().isBlank()) {
+            return;
+        }
+
+        long activeParticipants = participantRepository.findBySessionIdAndLeftAtIsNull(session.getId()).size();
+        if (activeParticipants < 2) {
+            return;
+        }
+
+        try {
+            String egressId = liveKitService.startRoomAudioRecording(session.getId());
+            session.setRecordingId(egressId);
+            sessionRepository.save(session);
+            log.info("Auto-started recording for session {}: {}", session.getId(), egressId);
+        } catch (Exception e) {
+            log.error("Failed to auto-start recording for session {}", session.getId(), e);
+        }
+    }
+
+    private void maybeStopSessionRecording(Session session, String reason) {
+        if (!liveKitService.isEgressAutoRecordEnabled()) {
+            return;
+        }
+        if (session.getRecordingId() == null || session.getRecordingId().isBlank()) {
+            return;
+        }
+
+        try {
+            liveKitService.stopEgress(session.getRecordingId());
+            log.info("Requested recording stop for session {} (reason: {}), egress={}",
+                    session.getId(), reason, session.getRecordingId());
+        } catch (Exception e) {
+            log.error("Failed to stop recording for session {} (reason: {})", session.getId(), reason, e);
+        }
     }
 
     /**

@@ -5,6 +5,7 @@ import com.mockly.core.dto.session.LiveKitTokenResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -18,6 +19,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -44,6 +46,36 @@ public class LiveKitService {
 
     @Value("${livekit.api-secret:}")
     private String apiSecret;
+
+    @Value("${livekit.egress.auto-record:true}")
+    private boolean egressAutoRecordEnabled;
+
+    @Value("${livekit.egress.s3-endpoint:${minio.endpoint:http://localhost:19000}}")
+    private String egressS3Endpoint;
+
+    @Value("${livekit.egress.s3-region:}")
+    private String egressS3Region;
+
+    @Value("${livekit.egress.s3-force-path-style:true}")
+    private boolean egressS3ForcePathStyle;
+
+    @Value("${livekit.egress.file-type:MP3}")
+    private String egressFileType;
+
+    @Value("${livekit.egress.webhook-url:}")
+    private String egressWebhookUrl;
+
+    @Value("${livekit.egress.webhook-signing-key:${livekit.api-key:}}")
+    private String egressWebhookSigningKey;
+
+    @Value("${minio.access-key:minioadmin}")
+    private String minioAccessKey;
+
+    @Value("${minio.secret-key:minioadmin}")
+    private String minioSecretKey;
+
+    @Value("${minio.bucket-name:mockly-artifacts}")
+    private String minioBucketName;
 
     private static final String ROOM_PREFIX = "session-";
     private static final int TOKEN_EXPIRATION_HOURS = 6;
@@ -127,6 +159,98 @@ public class LiveKitService {
         }
 
         return roomId;
+    }
+
+    public boolean isEgressAutoRecordEnabled() {
+        return egressAutoRecordEnabled;
+    }
+
+    public String startRoomAudioRecording(UUID sessionId) {
+        validateLiveKitCredentialsConfigured();
+
+        String roomId = ROOM_PREFIX + sessionId;
+        String token = generateEgressServiceToken(roomId);
+
+        Map<String, Object> fileOutput = new HashMap<>();
+        fileOutput.put("file_type", normalizedEgressFileType());
+        fileOutput.put("filepath", buildEgressFilePath(sessionId));
+
+        Map<String, Object> s3 = new HashMap<>();
+        s3.put("access_key", minioAccessKey);
+        s3.put("secret", minioSecretKey);
+        s3.put("bucket", minioBucketName);
+        s3.put("endpoint", egressS3Endpoint);
+        s3.put("force_path_style", egressS3ForcePathStyle);
+        if (egressS3Region != null && !egressS3Region.isBlank()) {
+            s3.put("region", egressS3Region);
+        }
+        fileOutput.put("s3", s3);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("room_name", roomId);
+        body.put("audio_only", true);
+        body.put("file_outputs", List.of(fileOutput));
+
+        if (egressWebhookUrl != null && !egressWebhookUrl.isBlank()
+                && egressWebhookSigningKey != null && !egressWebhookSigningKey.isBlank()) {
+            body.put("webhooks", List.of(Map.of(
+                    "url", egressWebhookUrl,
+                    "signing_key", egressWebhookSigningKey
+            )));
+        }
+
+        try {
+            Map<String, Object> response = liveKitClient().post()
+                    .uri("/twirp/livekit.Egress/StartRoomCompositeEgress")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .block();
+
+            String egressId = extractString(response, "egress_id", "egressId");
+            if (egressId == null || egressId.isBlank()) {
+                throw new IllegalStateException("LiveKit egress started but no egress_id was returned");
+            }
+
+            log.info("Started LiveKit room audio recording: session={}, room={}, egress={}",
+                    sessionId, roomId, egressId);
+            return egressId;
+        } catch (WebClientResponseException e) {
+            String details = e.getResponseBodyAsString();
+            throw new RuntimeException("Failed to start LiveKit egress: status=" + e.getStatusCode()
+                    + ", details=" + details, e);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to start LiveKit egress", e);
+        }
+    }
+
+    public void stopEgress(String egressId) {
+        if (egressId == null || egressId.isBlank()) {
+            return;
+        }
+
+        validateLiveKitCredentialsConfigured();
+        String token = generateEgressServiceToken(null);
+
+        Map<String, Object> body = Map.of("egress_id", egressId);
+
+        try {
+            liveKitClient().post()
+                    .uri("/twirp/livekit.Egress/StopEgress")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+            log.info("Stopped LiveKit egress: {}", egressId);
+        } catch (WebClientResponseException.NotFound e) {
+            log.info("LiveKit egress {} already stopped or not found", egressId);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to stop LiveKit egress " + egressId, e);
+        }
     }
 
     /**
@@ -244,6 +368,16 @@ public class LiveKitService {
         return generateServiceToken(videoGrant);
     }
 
+    private String generateEgressServiceToken(String roomId) {
+        Map<String, Object> videoGrant = new HashMap<>();
+        videoGrant.put("roomRecord", true);
+        videoGrant.put("roomAdmin", true);
+        if (roomId != null && !roomId.isBlank()) {
+            videoGrant.put("room", roomId);
+        }
+        return generateServiceToken(videoGrant);
+    }
+
     private String generateServiceToken(Map<String, Object> videoGrant) {
         validateLiveKitCredentialsConfigured();
 
@@ -291,6 +425,39 @@ public class LiveKitService {
 
     private boolean isLiveKitConfigured() {
         return apiKey != null && !apiKey.isBlank() && apiSecret != null && !apiSecret.isBlank();
+    }
+
+    private String normalizedEgressFileType() {
+        String normalized = egressFileType == null ? "" : egressFileType.trim().toUpperCase();
+        return switch (normalized) {
+            case "MP3", "OGG", "MP4" -> normalized;
+            default -> "MP3";
+        };
+    }
+
+    private String buildEgressFilePath(UUID sessionId) {
+        String extension = switch (normalizedEgressFileType()) {
+            case "OGG" -> "ogg";
+            case "MP4" -> "mp4";
+            default -> "mp3";
+        };
+        return "sessions/" + sessionId + "/recordings/{time}." + extension;
+    }
+
+    private String extractString(Map<String, Object> map, String... keys) {
+        if (map == null || keys == null) {
+            return null;
+        }
+        for (String key : keys) {
+            Object value = map.get(key);
+            if (value != null) {
+                String str = String.valueOf(value);
+                if (!str.isBlank()) {
+                    return str;
+                }
+            }
+        }
+        return null;
     }
 
     /**

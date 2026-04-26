@@ -40,10 +40,18 @@ public class ReportProcessingService {
     public CompletableFuture<Void> processReportAsync(UUID sessionId, UUID artifactId) {
         log.info("Starting async report processing for session: {}, artifact: {}", sessionId, artifactId);
 
-        Report report = reportRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Report not found: " + sessionId));
+        Report report = null;
 
         try {
+            report = reportRepository.findBySessionId(sessionId)
+                    .orElseGet(() -> {
+                        log.warn("Report row missing before async processing, creating fallback row for session: {}", sessionId);
+                        return reportRepository.save(Report.builder()
+                                .sessionId(sessionId)
+                                .status(Report.ReportStatus.PENDING)
+                                .build());
+                    });
+
             report.setStatus(Report.ReportStatus.PROCESSING);
             report = reportRepository.save(report);
 
@@ -81,14 +89,25 @@ public class ReportProcessingService {
 
             log.info("Report processing completed successfully for session: {}", sessionId);
             eventPublisher.publishEvent(new ReportReadyEvent(sessionId, toResponse(report)));
+            return CompletableFuture.completedFuture(null);
         } catch (Exception e) {
             log.error("Report processing failed for session: {}", sessionId, e);
-            report.setStatus(Report.ReportStatus.FAILED);
-            report.setErrorMessage(e.getMessage());
-            reportRepository.save(report);
+            try {
+                if (report == null) {
+                    report = reportRepository.findBySessionId(sessionId)
+                            .orElseGet(() -> reportRepository.save(Report.builder()
+                                    .sessionId(sessionId)
+                                    .status(Report.ReportStatus.PENDING)
+                                    .build()));
+                }
+                report.setStatus(Report.ReportStatus.FAILED);
+                report.setErrorMessage(e.getMessage());
+                reportRepository.save(report);
+            } catch (Exception persistException) {
+                log.error("Failed to persist FAILED report status for session: {}", sessionId, persistException);
+            }
+            return CompletableFuture.failedFuture(e);
         }
-
-        return CompletableFuture.completedFuture(null);
     }
 
     private ReportResponse toResponse(Report report) {

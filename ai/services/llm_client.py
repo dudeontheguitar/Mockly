@@ -2,6 +2,53 @@ import json
 import os
 import requests
 
+
+def _fallback_feedback(score: float) -> dict:
+    if score >= 80:
+        return {
+            "label": "Great Job",
+            "message": "Strong answer with clear structure and confidence.",
+            "strengths": [
+                "Relevant and focused response.",
+                "Good clarity and confidence.",
+                "Solid communication flow.",
+            ],
+            "areasToImprove": [
+                "Add more measurable outcomes.",
+                "Include deeper technical details where needed.",
+            ],
+            "recommendation": "Keep your structure and add one concrete impact metric in each answer.",
+        }
+    if score >= 60:
+        return {
+            "label": "Good Start",
+            "message": "Decent answer, but depth can be improved.",
+            "strengths": [
+                "Clear main idea.",
+                "Reasonably structured response.",
+            ],
+            "areasToImprove": [
+                "Use more specific examples.",
+                "Reduce filler words and repetition.",
+                "Explain reasoning more explicitly.",
+            ],
+            "recommendation": "Practice STAR-style answers with one concrete example and result.",
+        }
+
+    return {
+        "label": "Keep Improving",
+        "message": "Answer needs more structure and detail.",
+        "strengths": [
+            "You attempted to address the question.",
+        ],
+        "areasToImprove": [
+            "Improve structure and logical flow.",
+            "Add specific examples from experience.",
+            "Increase clarity and confidence.",
+        ],
+        "recommendation": "Prepare 3-5 structured examples and practice concise delivery.",
+    }
+
 def _build_ollama_generate_url() -> str:
     """
     Supports both:
@@ -61,9 +108,13 @@ def ask_llm_ollama(transcript: str, score: float) -> dict:
         "stream": False,
     }
 
-    resp = requests.post(OLLAMA_URL, json=payload, timeout=120)
-    resp.raise_for_status()
-    data = resp.json()
+    try:
+        resp = requests.post(OLLAMA_URL, json=payload, timeout=120)
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException as e:
+        print(f"[ask_llm_ollama] Ollama unavailable, using fallback feedback: {e}")
+        return _fallback_feedback(score)
 
     raw_text = data.get("response", "").strip()
 

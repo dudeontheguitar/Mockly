@@ -56,11 +56,33 @@ services:
   livekit:
     image: livekit/livekit-server:latest
     container_name: mockly-livekit
-    command: --dev --bind 0.0.0.0
+    command: --dev --bind 0.0.0.0 --config /etc/livekit/livekit.yaml
     ports:
       - "7880:7880"
       - "7881:7881"
       - "7882:7882/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit/livekit.yaml:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  egress:
+    image: livekit/egress:latest
+    container_name: mockly-egress
+    environment:
+      EGRESS_CONFIG_FILE: /etc/livekit/egress.yaml
+    volumes:
+      - ./egress.yaml:/etc/livekit/egress.yaml:ro
+    cap_add:
+      - SYS_ADMIN
+    depends_on:
+      livekit:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
 
   app:
     build:
@@ -95,6 +117,11 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       LIVEKIT_WEBHOOK_SECRET: ${LIVEKIT_WEBHOOK_SECRET:-secret}
+      LIVEKIT_EGRESS_AUTO_RECORD: ${LIVEKIT_EGRESS_AUTO_RECORD:-true}
+      LIVEKIT_EGRESS_S3_ENDPOINT: ${LIVEKIT_EGRESS_S3_ENDPOINT:-http://minio:9000}
+      LIVEKIT_EGRESS_WEBHOOK_URL: ${LIVEKIT_EGRESS_WEBHOOK_URL:-http://app:8080/api/webhooks/livekit}
+      LIVEKIT_EGRESS_WEBHOOK_SIGNING_KEY: ${LIVEKIT_EGRESS_WEBHOOK_SIGNING_KEY:-devkey}
+      ML_SERVICE_URL: ${ML_SERVICE_URL:-http://host.docker.internal:8000}
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,6 +130,8 @@ services:
       minio:
         condition: service_healthy
       livekit:
+        condition: service_started
+      egress:
         condition: service_started
 
 volumes:

@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Comparator;
 import java.util.Optional;
@@ -79,7 +81,7 @@ public class ReportService {
             report.setStatus(Report.ReportStatus.PROCESSING);
             report.setErrorMessage(null);
             report = reportRepository.save(report);
-            reportProcessingService.processReportAsync(sessionId, artifact.getId());
+            scheduleReportProcessingAfterCommit(sessionId, artifact.getId());
         }
 
         return toResponse(report);
@@ -183,6 +185,21 @@ public class ReportService {
         return type == ArtifactType.AUDIO_MIXED
                 || type == ArtifactType.AUDIO_LEFT
                 || type == ArtifactType.AUDIO_RIGHT;
+    }
+
+    private void scheduleReportProcessingAfterCommit(UUID sessionId, UUID artifactId) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    reportProcessingService.processReportAsync(sessionId, artifactId);
+                }
+            });
+            return;
+        }
+
+        reportProcessingService.processReportAsync(sessionId, artifactId);
     }
 
     private record ReportPreparation(Report report, boolean shouldProcess) {}

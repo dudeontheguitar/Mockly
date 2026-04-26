@@ -1,0 +1,12 @@
+port: 7880
+
+keys:
+  devkey: secret
+
+redis:
+  address: redis:6379
+
+webhook:
+  api_key: devkey
+  urls:
+    - http://app:8080/api/webhooks/livekit

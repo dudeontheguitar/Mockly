@@ -173,6 +173,16 @@ public class MinIOService {
 
         String normalized = objectReference.trim();
 
+        if (normalized.startsWith("s3://")) {
+            String withoutScheme = normalized.substring("s3://".length());
+            int slashIndex = withoutScheme.indexOf('/');
+            if (slashIndex >= 0 && slashIndex + 1 < withoutScheme.length()) {
+                normalized = withoutScheme.substring(slashIndex + 1);
+            } else {
+                normalized = withoutScheme;
+            }
+        }
+
         if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
             try {
                 URI uri = new URI(normalized);
