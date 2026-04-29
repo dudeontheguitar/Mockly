@@ -3,6 +3,13 @@ import os
 import requests
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _fallback_feedback(score: float) -> dict:
     if score >= 80:
         return {
@@ -71,8 +78,13 @@ def _build_ollama_generate_url() -> str:
 
 OLLAMA_URL = _build_ollama_generate_url()
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1")
+OLLAMA_TIMEOUT_SECONDS = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120"))
+OLLAMA_ENABLED = _env_bool("OLLAMA_ENABLED", True)
 
 def ask_llm_ollama(transcript: str, score: float) -> dict:
+    if not OLLAMA_ENABLED:
+        return _fallback_feedback(score)
+
     prompt = f"""
     You are an AI interview evaluator.
 
@@ -109,7 +121,7 @@ def ask_llm_ollama(transcript: str, score: float) -> dict:
     }
 
     try:
-        resp = requests.post(OLLAMA_URL, json=payload, timeout=120)
+        resp = requests.post(OLLAMA_URL, json=payload, timeout=OLLAMA_TIMEOUT_SECONDS)
         resp.raise_for_status()
         data = resp.json()
     except requests.RequestException as e:

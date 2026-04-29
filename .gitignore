@@ -33,3 +33,10 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Secrets / env files ###
+.env
+.env.*
+!.env.example
+!.env.*.example
+deploy/aws/.env.aws

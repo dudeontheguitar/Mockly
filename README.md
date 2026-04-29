@@ -70,4 +70,5 @@ Open the `android/` folder in Android Studio and let Gradle sync the project.
 
 ## Notes
 - The backend module has its own internal README with more detailed setup instructions
+- AWS production deployment guide (EC2 + domain + HTTPS + CI/CD) is available at `deploy/aws/README.md`
 
