@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Service for LiveKit WebRTC integration.
- * Handles token generation and room management.
- */
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -82,14 +82,14 @@ public class LiveKitService {
     private static final int SERVICE_TOKEN_EXPIRATION_SECONDS = 300;
     private static final int DEFAULT_EMPTY_ROOM_TIMEOUT_SECONDS = 600;
 
-    /**
-     * Generate a LiveKit access token for a user to join a session room.
-     *
-     * @param sessionId Session ID (used as room ID)
-     * @param userId User ID (used as identity)
-     * @param displayName User display name
-     * @return LiveKitTokenResponse with token, roomId, and URL
-     */
+    
+
+
+
+
+
+
+
     public LiveKitTokenResponse generateToken(UUID sessionId, UUID userId, String displayName) {
         log.info("Generating LiveKit token for session: {}, user: {}", sessionId, userId);
 
@@ -99,12 +99,12 @@ public class LiveKitService {
         String identity = userId.toString();
 
         try {
-            // Generate JWT token manually for LiveKit
-            // Format: header.payload.signature
+            
+            
             long now = System.currentTimeMillis() / 1000;
             long exp = now + (TOKEN_EXPIRATION_HOURS * 3600);
 
-            // Build claims with name/metadata
+            
             String nameClaim = displayName != null && !displayName.isBlank() 
                     ? String.format(",\"name\":\"%s\"", escapeJson(displayName))
                     : "";
@@ -113,14 +113,14 @@ public class LiveKitService {
                 apiKey, identity, now, exp, roomId, nameClaim
             );
 
-            // Create JWT header
+            
             String headerJson = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
             String header = Base64.getUrlEncoder().withoutPadding()
                     .encodeToString(headerJson.getBytes(StandardCharsets.UTF_8));
             String payload = Base64.getUrlEncoder().withoutPadding()
                     .encodeToString(claimsJson.getBytes(StandardCharsets.UTF_8));
 
-            // Create signature
+            
             String data = header + "." + payload;
             Mac mac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKey = new SecretKeySpec(apiSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
@@ -140,13 +140,13 @@ public class LiveKitService {
         }
     }
 
-    /**
-     * Create a LiveKit room ID for a session.
-     * In LiveKit, rooms are created automatically when the first participant joins.
-     *
-     * @param sessionId Session ID
-     * @return Room ID
-     */
+    
+
+
+
+
+
+
     public String createRoom(UUID sessionId) {
         String roomId = ROOM_PREFIX + sessionId.toString();
 
@@ -253,13 +253,13 @@ public class LiveKitService {
         }
     }
 
-    /**
-     * Delete a LiveKit room (cleanup after session ends).
-     * Note: This requires LiveKit RoomService API calls.
-     * For now, rooms are automatically cleaned up by LiveKit after being empty.
-     *
-     * @param roomId Room ID to delete
-     */
+    
+
+
+
+
+
+
     public void deleteRoom(String roomId) {
         if (!isLiveKitConfigured()) {
             log.warn("LiveKit API key/secret not configured, skipping room deletion for {}", roomId);
@@ -272,7 +272,7 @@ public class LiveKitService {
         } catch (WebClientResponseException.NotFound e) {
             log.info("LiveKit room {} not found during deletion, treating as already cleaned up", roomId);
         } catch (Exception e) {
-            // Best effort cleanup: don't fail session end because cleanup call failed
+            
             log.error("Failed to delete LiveKit room {}", roomId, e);
         }
     }
@@ -461,9 +461,9 @@ public class LiveKitService {
         return null;
     }
 
-    /**
-     * Escape JSON string to prevent injection.
-     */
+    
+
+
     private String escapeJson(String input) {
         if (input == null) {
             return "";

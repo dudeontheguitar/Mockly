@@ -47,7 +47,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/webhooks/livekit").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
-                        // WebSocket endpoint - authentication handled by JwtChannelInterceptor
+                        
                         .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated()
                 )

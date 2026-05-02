@@ -6,9 +6,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Response containing complete session information.
- */
+
+
+
 public record SessionResponse(
         UUID id,
         UUID createdBy,

@@ -15,55 +15,55 @@
     <packaging>jar</packaging>
 
     <dependencies>
-        <!-- mockly-data -->
+        
         <dependency>
             <groupId>com.mockly</groupId>
             <artifactId>mockly-data</artifactId>
         </dependency>
 
-        <!-- mockly-security -->
+        
         <dependency>
             <groupId>com.mockly</groupId>
             <artifactId>mockly-security</artifactId>
         </dependency>
 
-        <!-- Spring Context -->
+        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
 
-        <!-- Spring Web (для exceptions) -->
+        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- MapStruct -->
+        
         <dependency>
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
         </dependency>
 
-        <!-- Validation -->
+        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <!-- Spring Data JPA (for pagination) -->
+        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
 
-        <!-- MinIO -->
+        
         <dependency>
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
         </dependency>
 
-        <!-- Spring WebFlux for WebClient -->
+        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>

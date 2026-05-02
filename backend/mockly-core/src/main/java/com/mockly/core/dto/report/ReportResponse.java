@@ -4,9 +4,9 @@ import com.mockly.data.entity.Report;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Response containing report data.
- */
+
+
+
 public record ReportResponse(
         UUID id,
         UUID sessionId,

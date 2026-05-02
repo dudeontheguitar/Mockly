@@ -5,9 +5,9 @@ import com.mockly.data.enums.ParticipantRole;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-/**
- * Response containing participant information in a session.
- */
+
+
+
 public record SessionParticipantResponse(
         UUID id,
         UUID userId,

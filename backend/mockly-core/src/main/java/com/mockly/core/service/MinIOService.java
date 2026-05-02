@@ -15,9 +15,9 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Service for MinIO operations: bucket management, pre-signed URLs, etc.
- */
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -28,10 +28,10 @@ public class MinIOService {
     @Value("${minio.bucket-name:mockly-artifacts}")
     private String bucketName;
 
-    /**
-     * Initialize bucket on application startup.
-     * Creates bucket if it doesn't exist.
-     */
+    
+
+
+
     public void initializeBucket() {
         try {
             boolean exists = minioClient.bucketExists(BucketExistsArgs.builder()
@@ -54,13 +54,13 @@ public class MinIOService {
         }
     }
 
-    /**
-     * Generate pre-signed URL for uploading a file.
-     *
-     * @param objectName Object name (path) in the bucket
-     * @param expiryTime Expiry time in seconds (default: 1 hour)
-     * @return Pre-signed URL
-     */
+    
+
+
+
+
+
+
     public String generatePresignedUploadUrl(String objectName, int expiryTime) {
         try {
             String normalizedObjectName = normalizeObjectName(objectName);
@@ -80,13 +80,13 @@ public class MinIOService {
         }
     }
 
-    /**
-     * Generate pre-signed URL for downloading a file.
-     *
-     * @param objectName Object name (path) in the bucket
-     * @param expiryTime Expiry time in seconds (default: 1 hour)
-     * @return Pre-signed URL
-     */
+    
+
+
+
+
+
+
     public String generatePresignedDownloadUrl(String objectName, int expiryTime) {
         try {
             String normalizedObjectName = normalizeObjectName(objectName);
@@ -106,12 +106,12 @@ public class MinIOService {
         }
     }
 
-    /**
-     * Check if an object exists in the bucket.
-     *
-     * @param objectName Object name (path) in the bucket
-     * @return true if object exists
-     */
+    
+
+
+
+
+
     public boolean objectExists(String objectName) {
         try {
             String normalizedObjectName = normalizeObjectName(objectName);
@@ -134,12 +134,12 @@ public class MinIOService {
         }
     }
 
-    /**
-     * Get object metadata.
-     *
-     * @param objectName Object name (path) in the bucket
-     * @return Object metadata
-     */
+    
+
+
+
+
+
     public StatObjectResponse getObjectMetadata(String objectName) {
         try {
             String normalizedObjectName = normalizeObjectName(objectName);
@@ -159,13 +159,13 @@ public class MinIOService {
         return bucketName;
     }
 
-    /**
-     * Normalize stored object reference to a pure object key.
-     * Supports:
-     * - sessions/{sessionId}/...
-     * - {bucket}/sessions/{sessionId}/...
-     * - http(s)://host/{bucket}/sessions/{sessionId}/...
-     */
+    
+
+
+
+
+
+
     public String normalizeObjectName(String objectReference) {
         if (objectReference == null || objectReference.isBlank()) {
             throw new IllegalArgumentException("Object reference cannot be blank");

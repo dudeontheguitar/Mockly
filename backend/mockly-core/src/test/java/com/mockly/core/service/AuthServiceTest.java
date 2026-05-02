@@ -97,7 +97,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should register new user successfully")
     void shouldRegisterNewUserSuccessfully() {
-        // Given
+        
         when(userRepository.existsByEmail(registerRequest.email())).thenReturn(false);
         when(passwordEncoder.encode(registerRequest.password())).thenReturn("hashedPassword");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
@@ -107,10 +107,10 @@ class AuthServiceTest {
                 .thenReturn("refresh-token");
         when(profileRepository.save(any(Profile.class))).thenReturn(testProfile);
 
-        // When
+        
         TokenResponse response = authService.register(registerRequest);
 
-        // Then
+        
         assertThat(response).isNotNull();
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
@@ -127,10 +127,10 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should throw EmailAlreadyExistsException when email already exists")
     void shouldThrowExceptionWhenEmailExists() {
-        // Given
+        
         when(userRepository.existsByEmail(registerRequest.email())).thenReturn(true);
 
-        // When & Then
+        
         assertThatThrownBy(() -> authService.register(registerRequest))
                 .isInstanceOf(EmailAlreadyExistsException.class)
                 .hasMessageContaining(registerRequest.email());
@@ -142,7 +142,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should login user successfully")
     void shouldLoginSuccessfully() {
-        // Given
+        
         LoginRequest loginRequest = new LoginRequest("test@example.com", "password123");
         when(userRepository.findByEmail(loginRequest.email())).thenReturn(Optional.of(testUser));
         when(passwordEncoder.matches(loginRequest.password(), testUser.getPasswordHash()))
@@ -153,10 +153,10 @@ class AuthServiceTest {
         when(jwtTokenProvider.generateRefreshToken(testUserId))
                 .thenReturn("refresh-token");
 
-        // When
+        
         TokenResponse response = authService.login(loginRequest);
 
-        // Then
+        
         assertThat(response).isNotNull();
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
@@ -171,11 +171,11 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should throw InvalidCredentialsException when user not found")
     void shouldThrowExceptionWhenUserNotFound() {
-        // Given
+        
         LoginRequest loginRequest = new LoginRequest("test@example.com", "password123");
         when(userRepository.findByEmail(loginRequest.email())).thenReturn(Optional.empty());
 
-        // When & Then
+        
         assertThatThrownBy(() -> authService.login(loginRequest))
                 .isInstanceOf(InvalidCredentialsException.class);
 
@@ -185,13 +185,13 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should throw InvalidCredentialsException for invalid password")
     void shouldThrowExceptionForInvalidPassword() {
-        // Given
+        
         LoginRequest loginRequest = new LoginRequest("test@example.com", "wrongPassword");
         when(userRepository.findByEmail(loginRequest.email())).thenReturn(Optional.of(testUser));
         when(passwordEncoder.matches(loginRequest.password(), testUser.getPasswordHash()))
                 .thenReturn(false);
 
-        // When & Then
+        
         assertThatThrownBy(() -> authService.login(loginRequest))
                 .isInstanceOf(InvalidCredentialsException.class);
 
@@ -201,7 +201,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should refresh token successfully")
     void shouldRefreshTokenSuccessfully() {
-        // Given
+        
         String refreshToken = "valid-refresh-token";
         RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
         
@@ -215,10 +215,10 @@ class AuthServiceTest {
         when(jwtTokenProvider.generateRefreshToken(testUserId))
                 .thenReturn("new-refresh-token");
 
-        // When
+        
         TokenResponse response = authService.refreshToken(request);
 
-        // Then
+        
         assertThat(response).isNotNull();
         assertThat(response.accessToken()).isEqualTo("new-access-token");
         assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
@@ -233,13 +233,13 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should throw TokenInvalidException for invalid refresh token")
     void shouldThrowExceptionForInvalidRefreshToken() {
-        // Given
+        
         String refreshToken = "invalid-refresh-token";
         RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
         
         when(jwtTokenProvider.validateRefreshToken(refreshToken)).thenReturn(false);
 
-        // When & Then
+        
         assertThatThrownBy(() -> authService.refreshToken(request))
                 .isInstanceOf(TokenInvalidException.class)
                 .hasMessageContaining("Invalid refresh token");
@@ -250,7 +250,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should throw TokenInvalidException when refresh token not found in Redis")
     void shouldThrowExceptionWhenRefreshTokenNotFoundInRedis() {
-        // Given
+        
         String refreshToken = "valid-refresh-token";
         RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
         
@@ -258,7 +258,7 @@ class AuthServiceTest {
         when(jwtTokenProvider.getUserIdFromRefreshToken(refreshToken)).thenReturn(testUserId);
         when(redisTemplate.opsForValue().get(anyString())).thenReturn(null);
 
-        // When & Then
+        
         assertThatThrownBy(() -> authService.refreshToken(request))
                 .isInstanceOf(TokenInvalidException.class)
                 .hasMessageContaining("Refresh token not found or expired");
@@ -267,7 +267,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should throw UserNotFoundException when user not found during refresh")
     void shouldThrowExceptionWhenUserNotFoundDuringRefresh() {
-        // Given
+        
         String refreshToken = "valid-refresh-token";
         RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
         
@@ -276,7 +276,7 @@ class AuthServiceTest {
         when(redisTemplate.opsForValue().get(anyString())).thenReturn(refreshToken);
         when(userRepository.findById(testUserId)).thenReturn(Optional.empty());
 
-        // When & Then
+        
         assertThatThrownBy(() -> authService.refreshToken(request))
                 .isInstanceOf(UserNotFoundException.class);
     }
@@ -284,15 +284,15 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should logout successfully")
     void shouldLogoutSuccessfully() {
-        // Given
+        
         String refreshToken = "refresh-token";
         when(jwtTokenProvider.validateRefreshToken(refreshToken)).thenReturn(true);
         when(jwtTokenProvider.getUserIdFromRefreshToken(refreshToken)).thenReturn(testUserId);
 
-        // When
+        
         authService.logout(refreshToken);
 
-        // Then
+        
         verify(jwtTokenProvider).validateRefreshToken(refreshToken);
         verify(jwtTokenProvider).getUserIdFromRefreshToken(refreshToken);
         verify(redisTemplate).delete(anyString());
@@ -301,14 +301,14 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should handle logout with invalid token gracefully")
     void shouldHandleLogoutWithInvalidTokenGracefully() {
-        // Given
+        
         String refreshToken = "invalid-refresh-token";
         when(jwtTokenProvider.validateRefreshToken(refreshToken)).thenReturn(false);
 
-        // When
+        
         authService.logout(refreshToken);
 
-        // Then
+        
         verify(jwtTokenProvider).validateRefreshToken(refreshToken);
         verify(jwtTokenProvider, never()).getUserIdFromRefreshToken(anyString());
         verify(redisTemplate, never()).delete(anyString());

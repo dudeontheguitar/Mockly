@@ -15,19 +15,19 @@
     <packaging>jar</packaging>
 
     <dependencies>
-        <!-- mockly-data -->
+        
         <dependency>
             <groupId>com.mockly</groupId>
             <artifactId>mockly-data</artifactId>
         </dependency>
 
-        <!-- Spring Security -->
+        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
-        <!-- JWT -->
+        
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
@@ -43,13 +43,13 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Redis для Refresh Tokens -->
+        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
-        <!-- Spring Web (для контексте) -->
+        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

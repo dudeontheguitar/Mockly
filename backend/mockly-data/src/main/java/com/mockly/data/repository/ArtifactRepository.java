@@ -15,46 +15,46 @@ import java.util.UUID;
 @Repository
 public interface ArtifactRepository extends JpaRepository<Artifact, UUID> {
 
-    /**
-     * Find all artifacts for a session.
-     */
+    
+
+
     List<Artifact> findBySessionId(UUID sessionId);
 
-    /**
-     * Find all artifacts of a specific type for a session.
-     */
+    
+
+
     List<Artifact> findBySessionIdAndType(UUID sessionId, ArtifactType type);
 
-    /**
-     * Find a specific artifact by session ID and type.
-     * Returns the first match if multiple exist.
-     */
+    
+
+
+
     Optional<Artifact> findFirstBySessionIdAndType(UUID sessionId, ArtifactType type);
 
-    /**
-     * Count artifacts for a session.
-     */
+    
+
+
     long countBySessionId(UUID sessionId);
 
-    /**
-     * Check if an artifact of a specific type exists for a session.
-     */
+    
+
+
     boolean existsBySessionIdAndType(UUID sessionId, ArtifactType type);
 
-    /**
-     * Check if a specific storage object is already registered for a session.
-     */
+    
+
+
     boolean existsBySessionIdAndStorageUrl(UUID sessionId, String storageUrl);
 
-    /**
-     * Find artifact by session and storage object path.
-     */
+    
+
+
     Optional<Artifact> findBySessionIdAndStorageUrl(UUID sessionId, String storageUrl);
 
-    /**
-     * Insert egress artifact only when it does not already exist.
-     * Returns number of inserted rows (0 or 1).
-     */
+    
+
+
+
     @Modifying
     @Query(value = """
             INSERT INTO artifacts (session_id, type, storage_url, size_bytes, duration_sec)

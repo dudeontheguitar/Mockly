@@ -7,10 +7,10 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
 
-/**
- * Configuration for async processing.
- * Enables @Async support and configures thread pool for report processing.
- */
+
+
+
+
 @Configuration
 @EnableAsync
 public class AsyncConfig {

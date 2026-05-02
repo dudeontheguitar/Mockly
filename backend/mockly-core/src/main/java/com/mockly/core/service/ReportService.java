@@ -21,10 +21,10 @@ import java.util.Comparator;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Service for managing reports.
- * Handles report generation, ML processing, and status management.
- */
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -36,18 +36,18 @@ public class ReportService {
     private final ArtifactRepository artifactRepository;
     private final ReportProcessingService reportProcessingService;
 
-    /**
-     * Trigger report generation for a session.
-     * Creates a PENDING report and starts async processing.
-     *
-     * @param sessionId Session ID
-     * @param userId User ID (for authorization)
-     * @return Report response
-     */
+    
+
+
+
+
+
+
+
     public ReportResponse triggerReportGeneration(UUID sessionId, UUID userId) {
         log.info("Triggering report generation for session: {}", sessionId);
 
-        // Validate session exists and user has access.
+        
         var session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
         requireSessionAccess(session.getCreatedBy(), sessionId, userId);
@@ -59,9 +59,9 @@ public class ReportService {
         return triggerReportGenerationForArtifact(sessionId, userId, artifact.getId());
     }
 
-    /**
-     * Trigger report generation for a specific artifact.
-     */
+    
+
+
     public ReportResponse triggerReportGenerationForArtifact(UUID sessionId, UUID userId, UUID artifactId) {
         log.info("Triggering report generation for session: {}, artifact: {}", sessionId, artifactId);
 
@@ -91,13 +91,13 @@ public class ReportService {
         return toResponse(report);
     }
 
-    /**
-     * Get report for a session.
-     *
-     * @param sessionId Session ID
-     * @param userId User ID (for authorization)
-     * @return Report response
-     */
+    
+
+
+
+
+
+
     public ReportResponse getReport(UUID sessionId, UUID userId) {
         var session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
@@ -118,9 +118,9 @@ public class ReportService {
         );
     }
 
-    /**
-     * Convert entity to response DTO.
-     */
+    
+
+
     private ReportResponse toResponse(Report report) {
         return new ReportResponse(
                 report.getId(),

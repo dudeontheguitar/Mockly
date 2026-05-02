@@ -5,9 +5,9 @@ import com.mockly.data.enums.ArtifactType;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-/**
- * Response containing artifact information.
- */
+
+
+
 public record ArtifactResponse(
         UUID id,
         UUID sessionId,

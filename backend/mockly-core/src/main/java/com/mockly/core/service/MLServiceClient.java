@@ -13,10 +13,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Client for communicating with ML service.
- * Handles async requests to process artifacts and generate reports.
- */
+
+
+
+
 @Service
 @Slf4j
 public class MLServiceClient {
@@ -27,14 +27,14 @@ public class MLServiceClient {
         this.mlServiceWebClient = mlServiceWebClient;
     }
 
-    private static final Duration REQUEST_TIMEOUT = Duration.ofMinutes(30); // ML processing can take time
+    private static final Duration REQUEST_TIMEOUT = Duration.ofMinutes(30); 
 
-    /**
-     * Send artifact to ML service for processing.
-     *
-     * @param request Processing request with artifact details
-     * @return ML processing response with metrics, summary, recommendations, and transcript
-     */
+    
+
+
+
+
+
     public MLProcessResponse processArtifact(MLProcessRequest request) {
         log.info("Sending artifact to ML service for processing: sessionId={}, artifactId={}", 
                 request.sessionId(), request.artifactId());
@@ -45,7 +45,7 @@ public class MLServiceClient {
             return response;
         } catch (WebClientResponseException e) {
             if (e.getStatusCode().value() == 404) {
-                // Backward compatibility with older ML service versions.
+                
                 log.warn("ML endpoint /api/evaluate not found, falling back to legacy /api/process");
                 return processViaLegacyEndpoint(request);
             }
@@ -57,11 +57,11 @@ public class MLServiceClient {
         }
     }
 
-    /**
-     * Check if ML service is available.
-     *
-     * @return true if service is available
-     */
+    
+
+
+
+
     public boolean isAvailable() {
         return checkHealthEndpoint("/ping") || checkHealthEndpoint("/health");
     }

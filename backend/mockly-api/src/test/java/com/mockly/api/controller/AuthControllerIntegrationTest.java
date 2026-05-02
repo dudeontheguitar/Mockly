@@ -127,13 +127,13 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("POST /api/auth/register - Should return 400 for duplicate email")
     void shouldReturnBadRequestForDuplicateEmail() throws Exception {
-        // Register first user
+        
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRegisterRequest)))
                 .andExpect(status().isCreated());
 
-        // Try to register with same email
+        
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRegisterRequest)))
@@ -143,13 +143,13 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("POST /api/auth/login - Should login successfully")
     void shouldLoginSuccessfully() throws Exception {
-        // First register
+        
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRegisterRequest)))
                 .andExpect(status().isCreated());
 
-        // Then login
+        
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validLoginRequest)))
@@ -177,7 +177,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("POST /api/auth/refresh - Should refresh token successfully")
     void shouldRefreshTokenSuccessfully() throws Exception {
-        // Register and get tokens
+        
         String registerResponse = mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRegisterRequest)))
@@ -192,7 +192,7 @@ class AuthControllerIntegrationTest {
 
         RefreshTokenRequest refreshRequest = new RefreshTokenRequest(refreshToken);
 
-        // Refresh token
+        
         mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(refreshRequest)))
@@ -217,7 +217,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("POST /api/auth/logout - Should logout successfully")
     void shouldLogoutSuccessfully() throws Exception {
-        // Register and get tokens
+        
         String registerResponse = mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRegisterRequest)))
@@ -232,7 +232,7 @@ class AuthControllerIntegrationTest {
 
         RefreshTokenRequest logoutRequest = new RefreshTokenRequest(refreshToken);
 
-        // Logout
+        
         mockMvc.perform(post("/api/auth/logout")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(logoutRequest)))

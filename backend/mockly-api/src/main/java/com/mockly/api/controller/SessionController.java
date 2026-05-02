@@ -145,13 +145,13 @@ public class SessionController {
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authentication.getName());
 
-        // Verify user has access to session
+        
         SessionResponse session = sessionService.getSession(id, userId);
         if (session.status() == SessionStatus.ENDED || session.status() == SessionStatus.CANCELED) {
             throw new BadRequestException("Cannot generate LiveKit token for ended or canceled session");
         }
 
-        // Get user display name from profile
+        
         String displayName = sessionService.getUserDisplayName(userId);
         
         LiveKitTokenResponse response = liveKitService.generateToken(id, userId, displayName);

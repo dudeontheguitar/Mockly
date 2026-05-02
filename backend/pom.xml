@@ -26,7 +26,7 @@
     <maven.compiler.target>21</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-    <!-- Versions -->
+    
     <lombok.version>1.18.30</lombok.version>
     <mapstruct.version>1.5.5.Final</mapstruct.version>
     <testcontainers.version>1.19.3</testcontainers.version>
@@ -44,7 +44,7 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- Internal modules -->
+      
       <dependency>
         <groupId>com.mockly</groupId>
         <artifactId>mockly-core</artifactId>
@@ -61,7 +61,7 @@
         <version>${project.version}</version>
       </dependency>
 
-      <!-- JWT -->
+      
       <dependency>
         <groupId>io.jsonwebtoken</groupId>
         <artifactId>jjwt-api</artifactId>
@@ -78,28 +78,28 @@
         <version>${jwt.version}</version>
       </dependency>
 
-      <!-- MapStruct -->
+      
       <dependency>
         <groupId>org.mapstruct</groupId>
         <artifactId>mapstruct</artifactId>
         <version>${mapstruct.version}</version>
       </dependency>
 
-      <!-- MinIO -->
+      
       <dependency>
         <groupId>io.minio</groupId>
         <artifactId>minio</artifactId>
         <version>${minio.version}</version>
       </dependency>
 
-      <!-- SpringDoc OpenAPI -->
+      
       <dependency>
         <groupId>org.springdoc</groupId>
         <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         <version>${springdoc.version}</version>
       </dependency>
 
-      <!-- Testcontainers -->
+      
       <dependency>
         <groupId>org.testcontainers</groupId>
         <artifactId>testcontainers-bom</artifactId>
@@ -111,7 +111,7 @@
   </dependencyManagement>
 
   <dependencies>
-    <!-- Lombok for all modules -->
+    
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
@@ -119,7 +119,7 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- Testing -->
+    
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>

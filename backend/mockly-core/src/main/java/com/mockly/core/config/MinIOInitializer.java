@@ -6,9 +6,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/**
- * Initializes MinIO bucket on application startup.
- */
+
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j

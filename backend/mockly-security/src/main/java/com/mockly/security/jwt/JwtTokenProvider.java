@@ -26,7 +26,7 @@ public class JwtTokenProvider {
 
     private SecretKey getSigningKey() {
         byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
-        // HS512 requires at least 512 bits (64 bytes) key
+        
         if (keyBytes.length < 64) {
             throw new IllegalArgumentException("JWT secret must be at least 512 bits (64 bytes) for HS512 algorithm");
         }

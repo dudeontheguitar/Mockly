@@ -29,10 +29,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Service for managing interview sessions.
- * Handles session lifecycle, participant management, and validation.
- */
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -46,14 +46,14 @@ public class SessionService {
     private final LiveKitService liveKitService;
     private final ReportService reportService;
 
-    /**
-     * Create a new interview session.
-     * Validates that the user doesn't have an active session.
-     *
-     * @param userId ID of the user creating the session (candidate)
-     * @param request Create session request
-     * @return Created session response
-     */
+    
+
+
+
+
+
+
+
     @Transactional
     public SessionResponse createSession(UUID userId, CreateSessionRequest request) {
         log.info("Creating session for user: {} with interviewer: {}", userId, request.interviewerId());
@@ -62,7 +62,7 @@ public class SessionService {
             throw new BadRequestException("Candidate and interviewer must be different users");
         }
 
-        // Validate users exist
+        
         if (!userRepository.existsById(userId)) {
             throw new ResourceNotFoundException("User not found: " + userId);
         }
@@ -71,7 +71,7 @@ public class SessionService {
             throw new ResourceNotFoundException("Interviewer not found: " + request.interviewerId());
         }
 
-        // Validate role model: creator must be candidate, selected user must be interviewer
+        
         Profile creatorProfile = profileRepository.findByUserId(userId)
                 .orElseThrow(() -> new BadRequestException("Profile not found for user: " + userId));
         if (creatorProfile.getRole() != Profile.ProfileRole.CANDIDATE) {
@@ -84,7 +84,7 @@ public class SessionService {
             throw new BadRequestException("Selected user must have INTERVIEWER role");
         }
 
-        // Validation: Check if user already has an active session
+        
         Optional<Session> activeSession = sessionRepository
                 .findFirstByCreatedByAndStatusInOrderByCreatedAtDesc(
                         userId,
@@ -97,7 +97,7 @@ public class SessionService {
             );
         }
 
-        // Create session
+        
         Session session = Session.builder()
                 .createdBy(userId)
                 .status(SessionStatus.SCHEDULED)
@@ -107,12 +107,12 @@ public class SessionService {
 
         session = sessionRepository.save(session);
 
-        // Create LiveKit room (after session is saved to get ID)
+        
         String roomId = liveKitService.createRoom(session.getId());
         session.setRoomId(roomId);
         session = sessionRepository.save(session);
 
-        // Add creator as candidate participant
+        
         SessionParticipant candidateParticipant = SessionParticipant.builder()
                 .sessionId(session.getId())
                 .userId(userId)
@@ -121,7 +121,7 @@ public class SessionService {
 
         participantRepository.save(candidateParticipant);
 
-        // Add interviewer as participant
+        
         SessionParticipant interviewerParticipant = SessionParticipant.builder()
                 .sessionId(session.getId())
                 .userId(request.interviewerId())
@@ -132,21 +132,21 @@ public class SessionService {
 
         log.info("Session created successfully: {}", session.getId());
 
-        // Load session with participants for response
+        
         session = sessionRepository.findById(session.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found after creation"));
 
         return sessionMapper.toResponse(session);
     }
 
-    /**
-     * Join an existing session.
-     * Authorizes the caller to connect to the LiveKit room.
-     *
-     * @param sessionId Session ID
-     * @param userId User ID joining the session
-     * @return Updated session response
-     */
+    
+
+
+
+
+
+
+
     @Transactional
     public SessionResponse joinSession(UUID sessionId, UUID userId) {
         log.info("User {} joining session {}", userId, sessionId);
@@ -154,19 +154,19 @@ public class SessionService {
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
 
-        // Validate session status
+        
         if (session.getStatus() == SessionStatus.ENDED || session.getStatus() == SessionStatus.CANCELED) {
             throw new BadRequestException("Cannot join a session that has ended or been canceled");
         }
 
-        // Check if user is already a participant. REST join only authorizes the
-        // client to enter the interview; LiveKit webhooks mark real RTC presence.
+        
+        
         Optional<SessionParticipant> existingParticipant = participantRepository
                 .findBySessionIdAndUserId(sessionId, userId);
 
         if (existingParticipant.isEmpty()) {
-            // New participant - should not happen if session was created correctly
-            // But handle it gracefully
+            
+            
             log.warn("User {} joining session {} but not in participant list", userId, sessionId);
             throw new BadRequestException("User is not authorized to join this session");
         }
@@ -178,20 +178,20 @@ public class SessionService {
 
         log.info("User {} authorized to join session {}", userId, sessionId);
 
-        // Reload session with participants
+        
         session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found"));
 
         return sessionMapper.toResponse(session);
     }
 
-    /**
-     * Leave a session.
-     * Updates participant's left_at timestamp.
-     *
-     * @param sessionId Session ID
-     * @param userId User ID leaving the session
-     */
+    
+
+
+
+
+
+
     @Transactional
     public void leaveSession(UUID sessionId, UUID userId) {
         log.info("User {} leaving session {}", userId, sessionId);
@@ -218,13 +218,13 @@ public class SessionService {
         }
     }
 
-    /**
-     * End a session.
-     * Only the session creator or a participant can end the session.
-     *
-     * @param sessionId Session ID
-     * @param userId User ID ending the session
-     */
+    
+
+
+
+
+
+
     @Transactional
     public void endSession(UUID sessionId, UUID userId) {
         log.info("User {} ending session {}", userId, sessionId);
@@ -232,7 +232,7 @@ public class SessionService {
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
 
-        // Validate user can end session (creator or participant)
+        
         boolean isCreator = session.getCreatedBy().equals(userId);
         boolean isParticipant = participantRepository.existsBySessionIdAndUserId(sessionId, userId);
 
@@ -255,7 +255,7 @@ public class SessionService {
             liveKitService.deleteRoom(session.getRoomId());
         }
 
-        // Mark all participants as left
+        
         List<SessionParticipant> participants = participantRepository.findBySessionId(sessionId);
         for (SessionParticipant participant : participants) {
             if (participant.getLeftAt() == null) {
@@ -317,20 +317,20 @@ public class SessionService {
         }
     }
 
-    /**
-     * Get session by ID.
-     * User must be the creator or a participant.
-     *
-     * @param sessionId Session ID
-     * @param userId User ID requesting the session
-     * @return Session response
-     */
+    
+
+
+
+
+
+
+
     @Transactional(readOnly = true)
     public SessionResponse getSession(UUID sessionId, UUID userId) {
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
 
-        // Validate user has access (creator or participant)
+        
         boolean isCreator = session.getCreatedBy().equals(userId);
         boolean isParticipant = participantRepository.existsBySessionIdAndUserId(sessionId, userId);
 
@@ -341,16 +341,16 @@ public class SessionService {
         return sessionMapper.toResponse(session);
     }
 
-    /**
-     * List sessions for a user.
-     * Returns sessions where user is creator or participant.
-     *
-     * @param userId User ID
-     * @param page Page number (0-indexed)
-     * @param size Page size
-     * @param status Optional status filter
-     * @return Paginated session list
-     */
+    
+
+
+
+
+
+
+
+
+
     @Transactional(readOnly = true)
     public SessionListResponse listSessions(UUID userId, int page, int size, SessionStatus status) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -369,12 +369,12 @@ public class SessionService {
         );
     }
 
-    /**
-     * Get active session for a user.
-     *
-     * @param userId User ID
-     * @return Optional session response (empty if no active session)
-     */
+    
+
+
+
+
+
     @Transactional(readOnly = true)
     public Optional<SessionResponse> getActiveSession(UUID userId) {
         Pageable firstActiveSession = PageRequest.of(
@@ -396,13 +396,13 @@ public class SessionService {
         return activeSession.map(sessionMapper::toResponse);
     }
 
-    /**
-     * Get user display name from profile.
-     * Falls back to email if display name is not set.
-     *
-     * @param userId User ID
-     * @return Display name or email
-     */
+    
+
+
+
+
+
+
     @Transactional(readOnly = true)
     public String getUserDisplayName(UUID userId) {
         return profileRepository.findByUserId(userId)
@@ -410,13 +410,13 @@ public class SessionService {
                     if (profile.getDisplayName() != null && !profile.getDisplayName().isBlank()) {
                         return profile.getDisplayName();
                     }
-                    // Fallback to email if display name is not set
+                    
                     return userRepository.findById(userId)
                             .map(user -> user.getEmail())
                             .orElse("User");
                 })
                 .orElseGet(() -> {
-                    // If profile doesn't exist, use email
+                    
                     return userRepository.findById(userId)
                             .map(user -> user.getEmail())
                             .orElse("User");

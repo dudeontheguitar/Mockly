@@ -8,9 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-/**
- * Listens for report ready events and publishes WebSocket notifications.
- */
+
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j

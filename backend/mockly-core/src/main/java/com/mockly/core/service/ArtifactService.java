@@ -21,20 +21,20 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * Service for managing artifacts (audio files, recordings, etc.).
- * Handles upload requests, validation, and metadata storage.
- */
+
+
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ArtifactService {
 
-    private static final long MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 500MB
+    private static final long MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; 
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
             "audio/mpeg", "audio/mp3", "audio/wav", "audio/wave", "audio/x-wav",
             "audio/webm", "audio/ogg", "audio/mp4", "audio/x-m4a",
-            "application/octet-stream" // For raw WebRTC data
+            "application/octet-stream" 
     );
     private static final List<String> ALLOWED_EXTENSIONS = List.of(
             ".mp3", ".wav", ".webm", ".ogg", ".m4a", ".mp4", ".bin", ".raw"
@@ -46,41 +46,41 @@ public class ArtifactService {
     private final MinIOService minIOService;
     private final ApplicationEventPublisher eventPublisher;
 
-    /**
-     * Request upload URL for an artifact.
-     * Validates file type and size, creates artifact record, generates pre-signed URL.
-     *
-     * @param sessionId Session ID
-     * @param userId User ID (for authorization)
-     * @param request Upload request with file metadata
-     * @return Pre-signed URL and artifact ID
-     */
+    
+
+
+
+
+
+
+
+
     @Transactional
     public RequestUploadResponse requestUpload(UUID sessionId, UUID userId, RequestUploadRequest request) {
         log.info("Requesting upload URL for session: {}, type: {}, fileName: {}", 
                 sessionId, request.type(), request.fileName());
 
-        // Validate session exists and user has access
+        
         var session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
         requireSessionAccess(session.getCreatedBy(), sessionId, userId);
 
-        // Validate file size
+        
         if (request.fileSizeBytes() > MAX_FILE_SIZE_BYTES) {
             throw new BadRequestException(
                     String.format("File size exceeds maximum allowed size of %d MB", MAX_FILE_SIZE_BYTES / (1024 * 1024))
             );
         }
 
-        // Validate file type
+        
         validateFileType(request.fileName(), request.contentType());
 
-        // Generate object name: sessions/{sessionId}/artifacts/{artifactId}/{fileName}
+        
         UUID artifactId = UUID.randomUUID();
         String objectName = String.format("sessions/%s/artifacts/%s/%s", 
                 sessionId, artifactId, sanitizeFileName(request.fileName()));
 
-        // Create artifact record with PENDING status (will be updated on complete)
+        
         Artifact artifact = Artifact.builder()
                 .id(artifactId)
                 .sessionId(sessionId)
@@ -92,7 +92,7 @@ public class ArtifactService {
         artifact = artifactRepository.save(artifact);
         log.info("Created artifact record: {}", artifactId);
 
-        // Generate pre-signed upload URL (valid for 1 hour)
+        
         int expirySeconds = 3600;
         String uploadUrl = minIOService.generatePresignedUploadUrl(objectName, expirySeconds);
 
@@ -104,45 +104,45 @@ public class ArtifactService {
         );
     }
 
-    /**
-     * Complete artifact upload.
-     * Verifies file was uploaded and updates artifact metadata.
-     *
-     * @param sessionId Session ID
-     * @param artifactId Artifact ID
-     * @param userId User ID (for authorization)
-     * @param request Completion request with final metadata
-     * @return Updated artifact response
-     */
+    
+
+
+
+
+
+
+
+
+
     @Transactional
     public ArtifactResponse completeUpload(UUID sessionId, UUID artifactId, UUID userId, CompleteUploadRequest request) {
         log.info("Completing upload for artifact: {} in session: {}", artifactId, sessionId);
 
-        // Validate session exists
+        
         var session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
         requireSessionAccess(session.getCreatedBy(), sessionId, userId);
 
-        // Get artifact
+        
         Artifact artifact = artifactRepository.findById(artifactId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artifact not found: " + artifactId));
 
-        // Verify artifact belongs to session
+        
         if (!artifact.getSessionId().equals(sessionId)) {
             throw new BadRequestException("Artifact does not belong to this session");
         }
 
-        // Verify file was uploaded to MinIO
+        
         String objectName = minIOService.normalizeObjectName(artifact.getStorageUrl());
         if (!minIOService.objectExists(objectName)) {
             throw new BadRequestException("File was not uploaded to storage. Please upload the file first.");
         }
 
-        // Get actual file size from MinIO
+        
         var metadata = minIOService.getObjectMetadata(objectName);
         long actualSize = metadata.size();
 
-        // Update artifact metadata
+        
         artifact.setSizeBytes(actualSize);
         artifact.setDurationSec(request.durationSec());
         artifact.setStorageUrl(objectName);
@@ -160,9 +160,9 @@ public class ArtifactService {
         return toResponse(artifact);
     }
 
-    /**
-     * Get artifact by ID.
-     */
+    
+
+
     @Transactional(readOnly = true)
     public ArtifactResponse getArtifact(UUID sessionId, UUID artifactId, UUID userId) {
         Artifact artifact = artifactRepository.findById(artifactId)
@@ -178,12 +178,12 @@ public class ArtifactService {
         return toResponse(artifact);
     }
 
-    /**
-     * List artifacts for a session.
-     */
+    
+
+
     @Transactional(readOnly = true)
     public List<ArtifactResponse> listArtifacts(UUID sessionId, UUID userId) {
-        // Validate session exists
+        
         var session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
         requireSessionAccess(session.getCreatedBy(), sessionId, userId);
@@ -194,11 +194,11 @@ public class ArtifactService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Validate file type by extension and content type.
-     */
+    
+
+
     private void validateFileType(String fileName, String contentType) {
-        // Check extension
+        
         String lowerFileName = fileName.toLowerCase();
         boolean hasValidExtension = ALLOWED_EXTENSIONS.stream()
                 .anyMatch(lowerFileName::endsWith);
@@ -209,7 +209,7 @@ public class ArtifactService {
             );
         }
 
-        // Check content type if provided
+        
         if (contentType != null && !contentType.isBlank()) {
             String lowerContentType = contentType.toLowerCase();
             boolean hasValidContentType = ALLOWED_CONTENT_TYPES.stream()
@@ -221,11 +221,11 @@ public class ArtifactService {
         }
     }
 
-    /**
-     * Sanitize file name to prevent path traversal and special characters.
-     */
+    
+
+
     private String sanitizeFileName(String fileName) {
-        // Remove path separators and dangerous characters
+        
         return fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
@@ -235,9 +235,9 @@ public class ArtifactService {
         }
     }
 
-    /**
-     * Convert entity to response DTO.
-     */
+    
+
+
     private ArtifactResponse toResponse(Artifact artifact) {
         return new ArtifactResponse(
                 artifact.getId(),

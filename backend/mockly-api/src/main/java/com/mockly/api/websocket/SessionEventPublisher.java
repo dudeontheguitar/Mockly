@@ -12,10 +12,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
-/**
- * Publishes session-related events to WebSocket clients.
- * Uses STOMP messaging to send real-time updates.
- */
+
+
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -23,10 +23,10 @@ public class SessionEventPublisher {
 
     private final SimpMessagingTemplate messagingTemplate;
 
-    /**
-     * Publish session created event.
-     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions for all participants
-     */
+    
+
+
+
     public void publishSessionCreated(Session session, SessionResponse sessionResponse) {
         publishSessionCreated(session.getId(), session.getCreatedBy(), sessionResponse);
     }
@@ -49,10 +49,10 @@ public class SessionEventPublisher {
         log.info("Published SESSION_CREATED event for session: {}", sessionId);
     }
 
-    /**
-     * Publish session updated event.
-     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions for all participants
-     */
+    
+
+
+
     public void publishSessionUpdated(Session session, SessionResponse sessionResponse) {
         String sessionTopic = "/topic/sessions/" + session.getId();
 
@@ -64,10 +64,10 @@ public class SessionEventPublisher {
         log.info("Published SESSION_UPDATED event for session: {}", session.getId());
     }
 
-    /**
-     * Publish participant joined event.
-     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions
-     */
+    
+
+
+
     public void publishParticipantJoined(Session session, SessionParticipant participant, SessionResponse sessionResponse) {
         publishParticipantJoined(session.getId(), participant.getUserId(), sessionResponse);
     }
@@ -85,10 +85,10 @@ public class SessionEventPublisher {
                 sessionId, userId);
     }
 
-    /**
-     * Publish participant left event.
-     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions
-     */
+    
+
+
+
     public void publishParticipantLeft(Session session, UUID userId, SessionResponse sessionResponse) {
         publishParticipantLeft(session.getId(), userId, sessionResponse);
     }
@@ -106,10 +106,10 @@ public class SessionEventPublisher {
                 sessionId, userId);
     }
 
-    /**
-     * Publish session ended event.
-     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions for all participants
-     */
+    
+
+
+
     public void publishSessionEnded(Session session, SessionResponse sessionResponse) {
         publishSessionEnded(session.getId(), sessionResponse);
     }
@@ -125,10 +125,10 @@ public class SessionEventPublisher {
         log.info("Published SESSION_ENDED event for session: {}", sessionId);
     }
 
-    /**
-     * Publish report ready event.
-     * Sends to: /topic/sessions/{sessionId}/report and /topic/users/{userId}/sessions
-     */
+    
+
+
+
     public void publishReportReady(Session session, ReportResponse reportResponse) {
         String sessionTopic = "/topic/sessions/" + session.getId() + "/report";
         String sessionEventTopic = "/topic/sessions/" + session.getId();
@@ -138,7 +138,7 @@ public class SessionEventPublisher {
         messagingTemplate.convertAndSend(sessionTopic, event);
         messagingTemplate.convertAndSend(sessionEventTopic, event);
 
-        // Notify all participants
+        
         if (session.getParticipants() != null) {
             for (SessionParticipant participant : session.getParticipants()) {
                 String userTopic = "/topic/users/" + participant.getUserId() + "/sessions";
@@ -163,17 +163,17 @@ public class SessionEventPublisher {
         }
     }
 
-    /**
-     * WebSocket event wrapper.
-     */
+    
+
+
     public record SessionEvent(
             String type,
             SessionResponse data
     ) {}
 
-    /**
-     * WebSocket report event wrapper.
-     */
+    
+
+
     public record ReportEvent(
             String type,
             ReportResponse data

@@ -5,9 +5,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
-/**
- * Request to generate a pre-signed URL for artifact upload.
- */
+
+
+
 public record RequestUploadRequest(
         @NotNull(message = "Artifact type is required")
         ArtifactType type,

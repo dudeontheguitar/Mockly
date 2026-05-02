@@ -39,10 +39,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Controller for handling LiveKit webhook events.
- * LiveKit sends webhooks for room and participant events.
- */
+
+
+
+
 @RestController
 @RequestMapping("/api/webhooks/livekit")
 @RequiredArgsConstructor

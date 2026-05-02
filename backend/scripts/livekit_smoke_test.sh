@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Simple smoke test for LiveKit session flow through Mockly backend.
-# What it validates:
-# 1) register candidate + interviewer
-# 2) create session
-# 3) interviewer can discover the created session ID
-# 4) both users join session
-# 5) both users receive LiveKit tokens for the same room
-# 6) session becomes ACTIVE
-#
-# Optional:
-# - set AUTO_END=true to end the created session at the end of the script
-#
-# Environment variables:
-# BASE_URL   (default: http://localhost:8080/api)
-# PASSWORD   (default: TestPass123!)
-# AUTO_END   (default: false)
-# KEEP_LOGS  (default: false) if true, writes latest JSON responses to /tmp
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 BASE_URL="${BASE_URL:-http://localhost:8080/api}"
 PASSWORD="${PASSWORD:-TestPass123!}"

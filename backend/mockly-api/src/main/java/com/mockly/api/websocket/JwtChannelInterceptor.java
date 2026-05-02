@@ -18,10 +18,10 @@ import org.springframework.util.StringUtils;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Interceptor for WebSocket JWT authentication.
- * Validates JWT token from STOMP headers and sets authentication in security context.
- */
+
+
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -37,7 +37,7 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
         
         if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
-            // Extract token from headers
+            
             String token = extractToken(accessor);
             
             if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
@@ -51,7 +51,7 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
                             Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
                     );
 
-                    // Set authentication in accessor for WebSocket session
+                    
                     accessor.setUser(authentication);
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                     
@@ -69,12 +69,12 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
         return message;
     }
 
-    /**
-     * Extract JWT token from STOMP headers.
-     * Supports both "Authorization: Bearer <token>" and "token: <token>" formats.
-     */
+    
+
+
+
     private String extractToken(StompHeaderAccessor accessor) {
-        // Try Authorization header first
+        
         List<String> authHeaders = accessor.getNativeHeader(AUTHORIZATION_HEADER);
         if (authHeaders != null && !authHeaders.isEmpty()) {
             String bearerToken = authHeaders.get(0);
@@ -83,7 +83,7 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
             }
         }
 
-        // Try token header
+        
         List<String> tokenHeaders = accessor.getNativeHeader(TOKEN_HEADER);
         if (tokenHeaders != null && !tokenHeaders.isEmpty()) {
             return tokenHeaders.get(0);
