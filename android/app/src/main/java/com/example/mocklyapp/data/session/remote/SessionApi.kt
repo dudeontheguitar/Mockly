@@ -1,14 +1,14 @@
 package com.example.mocklyapp.data.session.remote
 
 import com.google.gson.annotations.SerializedName
+import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
-import retrofit2.http.Body
 import retrofit2.http.Path
 import retrofit2.http.Query
 
 data class SessionsPageDto(
-    val sessions: List<SessionDto>
+    val sessions: List<SessionDto>? = emptyList()
 )
 
 data class SessionDto(
@@ -26,8 +26,18 @@ data class SessionDto(
     val roomProvider: String?,
     val roomId: String?,
     val recordingId: String?,
-    val participants: List<SessionParticipantDto>,
-    val artifacts: List<SessionArtifactDto>
+    val interview: SessionInterviewDto?,
+    val participants: List<SessionParticipantDto>? = emptyList(),
+    val artifacts: List<SessionArtifactDto>? = emptyList()
+)
+
+data class SessionInterviewDto(
+    val slotId: String?,
+    val title: String?,
+    val company: String?,
+    val location: String?,
+    val description: String?,
+    val durationMinutes: Int?
 )
 
 data class SessionParticipantDto(
@@ -35,6 +45,7 @@ data class SessionParticipantDto(
     val userId: String,
     val userDisplayName: String?,
     val userEmail: String?,
+    val userAvatarUrl: String?,
     val roleInSession: String,
     val joinedAt: String?,
     val leftAt: String?
@@ -59,6 +70,11 @@ data class LiveKitTokenDto(
     val url: String
 )
 
+data class SessionActionResponseDto(
+    val id: String,
+    val status: String
+)
+
 interface SessionApi {
 
     @GET("sessions")
@@ -81,7 +97,7 @@ interface SessionApi {
     @POST("sessions/{id}/end")
     suspend fun endSession(
         @Path("id") id: String
-    )
+    ): SessionActionResponseDto
 
     @POST("sessions/{id}/join")
     suspend fun joinSession(
@@ -91,14 +107,13 @@ interface SessionApi {
     @POST("sessions/{id}/leave")
     suspend fun leaveSession(
         @Path("id") id: String
-    )
+    ): SessionActionResponseDto
 
     @GET("sessions/{id}/token")
     suspend fun getSessionToken(
         @Path("id") id: String
     ): LiveKitTokenDto
 
-    // Возвращает 404 если нет активной сессии — обрабатывается в репозитории
     @GET("sessions/me/active")
     suspend fun getMyActiveSession(): SessionDto
 }

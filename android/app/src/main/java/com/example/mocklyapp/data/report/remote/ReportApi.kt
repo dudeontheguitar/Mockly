@@ -2,14 +2,15 @@ package com.example.mocklyapp.data.report.remote
 
 import com.google.gson.annotations.SerializedName
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Path
 
 data class ReportDto(
     @SerializedName("id")
-    val id: String,
+    val id: String?,
 
     @SerializedName("sessionId")
-    val sessionId: String,
+    val sessionId: String?,
 
     @SerializedName("metrics")
     val metrics: Map<String, Any>?,
@@ -21,7 +22,7 @@ data class ReportDto(
     val recommendations: String?,
 
     @SerializedName("status")
-    val status: String,
+    val status: String?,
 
     @SerializedName("errorMessage")
     val errorMessage: String?,
@@ -37,6 +38,11 @@ interface ReportApi {
 
     @GET("sessions/{sessionId}/report")
     suspend fun getSessionReport(
+        @Path("sessionId") sessionId: String
+    ): ReportDto
+
+    @POST("sessions/{sessionId}/report/trigger")
+    suspend fun triggerSessionReport(
         @Path("sessionId") sessionId: String
     ): ReportDto
 }

@@ -12,13 +12,18 @@ data class UserDto(
     val role: String,
     val avatarUrl: String?,
     val level: String?,
-    val skills: List<String>?
+    val skills: List<String>?,
+    val bio: String?,
+    val location: String?
 )
 
 data class UpdateUserRequest(
     val displayName: String?,
     val avatarUrl: String?,
-    val level: String?
+    val level: String?,
+    val skills: List<String>?,
+    val bio: String?,
+    val location: String?
 )
 
 interface UserApi {

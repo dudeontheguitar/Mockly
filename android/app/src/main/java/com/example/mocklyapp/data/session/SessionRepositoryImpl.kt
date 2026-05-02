@@ -17,13 +17,13 @@ class SessionRepositoryImpl(
         page: Int?,
         size: Int?
     ): List<Session> {
-        val resp = api.getSessions(
+        val response = api.getSessions(
             page = page,
             size = size,
             status = status?.name
         )
 
-        return resp.sessions.map { it.toDomain() }
+        return response.sessions.orEmpty().map { it.toDomain() }
     }
 
     override suspend fun getActiveSession(): Session? {
@@ -42,14 +42,14 @@ class SessionRepositoryImpl(
         interviewerId: String,
         scheduledAt: String
     ): Session {
-        val dto = api.createSession(
+        val response = api.createSession(
             CreateSessionRequestDto(
                 interviewerId = interviewerId,
                 scheduledAt = scheduledAt
             )
         )
 
-        return dto.toDomain()
+        return response.toDomain()
     }
 
     override suspend fun getSessionById(id: String): Session {
@@ -69,12 +69,12 @@ class SessionRepositoryImpl(
     }
 
     override suspend fun getLiveKitToken(id: String): LiveKitToken {
-        val dto = api.getSessionToken(id)
+        val response = api.getSessionToken(id)
 
         return LiveKitToken(
-            token = dto.token,
-            roomId = dto.roomId,
-            url = dto.url
+            token = response.token,
+            roomId = response.roomId,
+            url = response.url
         )
     }
 }

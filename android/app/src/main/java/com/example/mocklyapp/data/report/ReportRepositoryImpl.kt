@@ -1,7 +1,6 @@
 package com.example.mocklyapp.data.report
 
 import com.example.mocklyapp.data.report.remote.ReportApi
-import com.example.mocklyapp.data.report.remote.ReportDto
 import com.example.mocklyapp.domain.report.ReportRepository
 import com.example.mocklyapp.domain.report.model.InterviewReport
 
@@ -10,20 +9,10 @@ class ReportRepositoryImpl(
 ) : ReportRepository {
 
     override suspend fun getSessionReport(sessionId: String): InterviewReport {
-        return reportApi.getSessionReport(sessionId).toDomain()
+        return reportApi.getSessionReport(sessionId).toDomain(sessionId)
     }
-}
 
-private fun ReportDto.toDomain(): InterviewReport {
-    return InterviewReport(
-        id = id,
-        sessionId = sessionId,
-        status = status.uppercase(),
-        summary = summary,
-        recommendations = recommendations,
-        metrics = metrics,
-        errorMessage = errorMessage,
-        createdAt = createdAt,
-        updatedAt = updatedAt
-    )
+    override suspend fun triggerSessionReport(sessionId: String): InterviewReport {
+        return reportApi.triggerSessionReport(sessionId).toDomain(sessionId)
+    }
 }

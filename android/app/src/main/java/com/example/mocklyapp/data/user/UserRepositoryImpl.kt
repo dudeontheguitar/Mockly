@@ -22,7 +22,10 @@ class UserRepositoryImpl(
         name: String?,
         surname: String?,
         avatarUrl: String?,
-        level: String?
+        level: String?,
+        skills: List<String>,
+        bio: String?,
+        location: String?
     ): User {
         val displayName = buildDisplayName(name, surname)
 
@@ -30,7 +33,10 @@ class UserRepositoryImpl(
             UpdateUserRequest(
                 displayName = displayName,
                 avatarUrl = avatarUrl,
-                level = level
+                level = level?.trim()?.takeIf { it.isNotBlank() },
+                skills = skills.map { it.trim() }.filter { it.isNotBlank() },
+                bio = bio?.trim()?.takeIf { it.isNotBlank() },
+                location = location?.trim()?.takeIf { it.isNotBlank() }
             )
         )
 
@@ -58,6 +64,8 @@ private fun UserDto.toDomain(): User {
         role = role,
         avatarUrl = avatarUrl,
         level = level,
-        skills = skills ?: emptyList()
+        skills = skills.orEmpty(),
+        bio = bio,
+        location = location
     )
 }

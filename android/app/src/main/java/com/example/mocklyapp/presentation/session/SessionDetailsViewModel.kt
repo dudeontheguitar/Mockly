@@ -21,6 +21,9 @@ data class SessionDetailsUiState(
     val session: Session? = null,
     val title: String = "",
     val company: String = "",
+    val location: String = "",
+    val description: String = "",
+    val durationMinutes: Int = 30,
     val interviewerName: String = "",
     val candidateName: String = "",
     val formattedTime: String = "",
@@ -58,12 +61,17 @@ class SessionDetailsViewModel(
                 val candidate = session.participants
                     .firstOrNull { it.roleInSession == SessionRole.CANDIDATE }
 
+                val interview = session.interview
+
                 _state.update {
                     it.copy(
                         isLoading = false,
                         session = session,
-                        title = "Mock Interview",
-                        company = session.roomProvider ?: "LiveKit",
+                        title = interview?.title.orEmpty().ifBlank { "Interview Session" },
+                        company = interview?.company.orEmpty(),
+                        location = interview?.location.orEmpty(),
+                        description = interview?.description.orEmpty(),
+                        durationMinutes = interview?.durationMinutes ?: 30,
                         interviewerName = interviewer?.userDisplayName ?: "Interviewer",
                         candidateName = candidate?.userDisplayName ?: "Candidate",
                         formattedTime = formatTime(session.startAt),

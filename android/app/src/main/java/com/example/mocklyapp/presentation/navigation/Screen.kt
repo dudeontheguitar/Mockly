@@ -9,9 +9,6 @@ object DiscoverRoute
 object InterviewRoute
 
 @Serializable
-object MessageRoute
-
-@Serializable
 object SettingsRoute
 
 @Serializable
@@ -45,11 +42,17 @@ object InterviewerRootRoute
 object InterviewerSessionsRoute
 
 @Serializable
+object CreateInterviewSlotRoute
+
+@Serializable
 data class InterviewRegister(
-    val jobTitle: String,
+    val slotId: String,
+    val title: String,
     val company: String,
-    val interviewerId: String,
-    val interviewerName: String
+    val location: String,
+    val interviewerName: String,
+    val scheduledAt: String?,
+    val durationMinutes: Int
 )
 
 @Serializable
@@ -61,8 +64,9 @@ data class SessionDetailsRoute(
 data class MockInterviewRoute(
     val sessionId: String
 )
+
 @Serializable
 data class InterviewResultsRoute(
-    val sessionId: String
+    val sessionId: String,
+    val noReportReason: String? = null
 )
-

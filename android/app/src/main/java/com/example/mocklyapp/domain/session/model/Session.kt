@@ -10,8 +10,18 @@ data class Session(
     val roomProvider: String?,
     val roomId: String?,
     val recordingId: String?,
+    val interview: SessionInterview?,
     val participants: List<SessionParticipant>,
     val artifacts: List<SessionArtifact>
+)
+
+data class SessionInterview(
+    val slotId: String?,
+    val title: String?,
+    val company: String?,
+    val location: String?,
+    val description: String?,
+    val durationMinutes: Int?
 )
 
 enum class SessionStatus {
@@ -26,6 +36,7 @@ data class SessionParticipant(
     val userId: String,
     val userDisplayName: String?,
     val userEmail: String?,
+    val userAvatarUrl: String?,
     val roleInSession: SessionRole,
     val joinedAt: String?,
     val leftAt: String?

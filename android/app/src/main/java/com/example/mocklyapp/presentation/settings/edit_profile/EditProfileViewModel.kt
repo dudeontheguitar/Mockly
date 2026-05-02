@@ -6,6 +6,7 @@ import com.example.mocklyapp.domain.user.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import retrofit2.HttpException
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -16,6 +17,10 @@ data class EditProfileUiState(
     val surname: String = "",
     val email: String = "",
     val avatarUrl: String? = null,
+    val level: String = "",
+    val skillsText: String = "",
+    val bio: String = "",
+    val location: String = "",
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val error: String? = null,
@@ -36,14 +41,20 @@ class EditProfileViewModel(
     private fun loadUser() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
+
             try {
                 val user = userRepo.getCurrentUser()
+
                 _state.value = _state.value.copy(
                     isLoading = false,
                     name = user.name,
-                    surname = user.surname ?: "",
+                    surname = user.surname,
                     email = user.email,
                     avatarUrl = user.avatarUrl,
+                    level = user.level.orEmpty(),
+                    skillsText = user.skills.joinToString(", "),
+                    bio = user.bio.orEmpty(),
+                    location = user.location.orEmpty(),
                     error = null
                 )
             } catch (e: Exception) {
@@ -57,31 +68,46 @@ class EditProfileViewModel(
 
     fun saveProfile(
         name: String,
-        surname: String
+        surname: String,
+        level: String,
+        skillsText: String,
+        bio: String,
+        location: String
     ) {
         if (name.isBlank()) {
-            _state.value = _state.value.copy(
-                error = "Name cannot be empty."
-            )
+            _state.value = _state.value.copy(error = "Name cannot be empty.")
             return
         }
 
+        val skills = skillsText
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+
         viewModelScope.launch {
             _state.value = _state.value.copy(isSaving = true, error = null)
+
             try {
                 val updated = userRepo.updateCurrentUser(
                     name = name,
                     surname = surname,
-                    avatarUrl = _state.value.avatarUrl, // пока просто прокидываем текущее
-                    level = null
+                    avatarUrl = _state.value.avatarUrl,
+                    level = level,
+                    skills = skills,
+                    bio = bio,
+                    location = location
                 )
 
                 _state.value = _state.value.copy(
                     isSaving = false,
                     name = updated.name,
-                    surname = updated.surname ?: "",
+                    surname = updated.surname,
                     email = updated.email,
                     avatarUrl = updated.avatarUrl,
+                    level = updated.level.orEmpty(),
+                    skillsText = updated.skills.joinToString(", "),
+                    bio = updated.bio.orEmpty(),
+                    location = updated.location.orEmpty(),
                     isSaved = true,
                     error = null
                 )
@@ -94,16 +120,22 @@ class EditProfileViewModel(
         }
     }
 
-    fun updateAvatarUrl(url: String) {
-        _state.value = _state.value.copy(avatarUrl = url)
-    }
-
     private fun mapError(e: Throwable): String {
         return when (e) {
-            is HttpException -> when (e.code()) {
-                401 -> "Session expired. Please log in again."
-                in 500..599 -> "Server error. Please try again later."
-                else -> "Server error (HTTP ${e.code()})."
+            is HttpException -> {
+                val backendMessage = try {
+                    val body = e.response()?.errorBody()?.string()
+                    JSONObject(body ?: "").optString("message")
+                } catch (_: Exception) {
+                    null
+                }
+
+                when {
+                    !backendMessage.isNullOrBlank() -> backendMessage
+                    e.code() == 401 -> "Session expired. Please log in again."
+                    e.code() in 500..599 -> "Server error. Please try again later."
+                    else -> "Server error HTTP ${e.code()}."
+                }
             }
 
             is UnknownHostException ->
@@ -116,7 +148,7 @@ class EditProfileViewModel(
                 "Network error. Please check your internet connection."
 
             else ->
-                "Unexpected error: ${e.message ?: "Something went wrong."}"
+                e.message ?: "Something went wrong."
         }
     }
 }

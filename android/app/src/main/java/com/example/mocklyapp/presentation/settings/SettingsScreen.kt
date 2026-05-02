@@ -2,11 +2,30 @@ package com.example.mocklyapp.presentation.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -27,16 +46,14 @@ import com.example.mocklyapp.presentation.theme.Poppins
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onEditProfileClick: () -> Unit = {},
-    onChangePasswordClick: () -> Unit = {},
-    onHelpCenterClick: () -> Unit = {},
-    onContactSupportClick: () -> Unit = {},
-    onTermsClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
 
     LaunchedEffect(state.isLoggedOut) {
-        if (state.isLoggedOut) onLogoutClick()
+        if (state.isLoggedOut) {
+            onLogoutClick()
+        }
     }
 
     Surface(color = MaterialTheme.colorScheme.onBackground) {
@@ -48,65 +65,74 @@ fun SettingsScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             item { Header() }
+
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
-            item {
-                val fullName = "${state.name} ${state.surname}".trim()
-                UserProfileCard(
-                    fullName = fullName.ifBlank { "Your Name" },
-                    email = state.email.ifBlank { "example@gmail.com" },
-                )
-            }
-
-            if (state.error != null) {
-                item { Spacer(modifier = Modifier.height(8.dp)) }
-                item {
-                    Text(
-                        text = state.error ?: "",
-                        color = Color.Red,
-                        fontSize = 14.sp,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+            when {
+                state.isLoading -> {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                 }
-            }
 
-            item { Spacer(modifier = Modifier.height(24.dp)) }
+                state.error != null -> {
+                    item {
+                        ErrorCard(
+                            error = state.error ?: "Failed to load settings.",
+                            onRetry = { viewModel.refresh() }
+                        )
+                    }
+                }
 
-            item { SectionTitle("Account") }
-            item { Spacer(modifier = Modifier.height(12.dp)) }
-            item {
-                AccountSection(
-                    onEditProfileClick = onEditProfileClick
-                    // Change Password скрыт: endpoint отсутствует на backend
-                )
-            }
-            item { Spacer(modifier = Modifier.height(24.dp)) }
+                else -> {
+                    item {
+                        UserProfileCard(
+                            fullName = "${state.name} ${state.surname}".trim().ifBlank { "User" },
+                            email = state.email,
+                            role = state.role,
+                            level = state.level,
+                            location = state.location
+                        )
+                    }
 
-            item { SectionTitle("App Settings") }
-            item { Spacer(modifier = Modifier.height(12.dp)) }
-            item {
-                AppSettingsSection(
-                    notificationsEnabled = state.notificationsEnabled,
-                    darkModeEnabled = state.darkModeEnabled,
-                    onNotificationsChange = { viewModel.onNotificationsChange(it) },
-                    onDarkModeChange = { viewModel.onDarkModeChange(it) }
-                )
-            }
-            item { Spacer(modifier = Modifier.height(24.dp)) }
+                    item { Spacer(modifier = Modifier.height(24.dp)) }
 
-            item { SectionTitle("Support") }
-            item { Spacer(modifier = Modifier.height(12.dp)) }
-            item {
-                SupportSection(
-                    onHelpCenterClick = onHelpCenterClick,
-                    onContactSupportClick = onContactSupportClick,
-                    onTermsClick = onTermsClick
-                )
-            }
-            item { Spacer(modifier = Modifier.height(32.dp)) }
+                    item { SectionTitle("Profile") }
 
-            item {
-                LogoutButton(onClick = { viewModel.logout() })
+                    item { Spacer(modifier = Modifier.height(12.dp)) }
+
+                    item {
+                        ProfileDetailsCard(
+                            bio = state.bio,
+                            skills = state.skills
+                        )
+                    }
+
+                    item { Spacer(modifier = Modifier.height(24.dp)) }
+
+                    item { SectionTitle("Account") }
+
+                    item { Spacer(modifier = Modifier.height(12.dp)) }
+
+                    item {
+                        AccountSection(
+                            onEditProfileClick = onEditProfileClick
+                        )
+                    }
+
+                    item { Spacer(modifier = Modifier.height(32.dp)) }
+
+                    item {
+                        LogoutButton(onClick = { viewModel.logout() })
+                    }
+                }
             }
         }
     }
@@ -114,23 +140,55 @@ fun SettingsScreen(
 
 @Composable
 private fun Header() {
-    Row(
+    Text(
+        text = "Settings",
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 10.dp, start = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(top = 10.dp, start = 4.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        style = TextStyle(
+            fontFamily = Poppins,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp
+        )
+    )
+}
+
+@Composable
+private fun ErrorCard(
+    error: String,
+    onRetry: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Text(
-            text = "Settings",
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            style = TextStyle(
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Failed to load profile",
                 fontFamily = Poppins,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 24.sp
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.primaryContainer
             )
-        )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = error,
+                fontFamily = Poppins,
+                fontSize = 14.sp,
+                color = Color.Red
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            TextButton(onClick = onRetry) {
+                Text("Retry", fontFamily = Poppins)
+            }
+        }
     }
 }
 
@@ -138,6 +196,9 @@ private fun Header() {
 private fun UserProfileCard(
     fullName: String,
     email: String,
+    role: String,
+    level: String?,
+    location: String?
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -149,46 +210,127 @@ private fun UserProfileCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFE8E8E8)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.profile),
-                        contentDescription = "Profile",
-                        modifier = Modifier.size(28.dp),
-                        tint = Color.Gray
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(
-                        text = fullName,
-                        style = TextStyle(
-                            fontFamily = Poppins,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 18.sp,
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    )
-                    Text(
-                        text = email,
-                        style = TextStyle(
-                            fontFamily = Poppins,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    )
-                }
+            Box(
+                modifier = Modifier
+                    .size(58.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE8E8E8)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.profile),
+                    contentDescription = "Profile",
+                    modifier = Modifier.size(28.dp),
+                    tint = Color.Gray
+                )
             }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column {
+                Text(
+                    text = fullName,
+                    style = TextStyle(
+                        fontFamily = Poppins,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 18.sp,
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                Text(
+                    text = email,
+                    style = TextStyle(
+                        fontFamily = Poppins,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                )
+
+                Spacer(Modifier.height(6.dp))
+
+                val subtitle = buildString {
+                    append(role.ifBlank { "USER" })
+                    if (!level.isNullOrBlank()) append(" • $level")
+                    if (!location.isNullOrBlank()) append(" • $location")
+                }
+
+                Text(
+                    text = subtitle,
+                    style = TextStyle(
+                        fontFamily = Poppins,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileDetailsCard(
+    bio: String?,
+    skills: List<String>
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Bio",
+                fontFamily = Poppins,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.primaryContainer
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                text = bio?.takeIf { it.isNotBlank() } ?: "No bio added yet.",
+                fontFamily = Poppins,
+                fontSize = 14.sp,
+                lineHeight = 21.sp,
+                color = MaterialTheme.colorScheme.secondary
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E5E5))
+
+            Spacer(Modifier.height(14.dp))
+
+            Text(
+                text = "Skills",
+                fontFamily = Poppins,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.primaryContainer
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                text = if (skills.isEmpty()) {
+                    "No skills added yet."
+                } else {
+                    skills.joinToString(", ")
+                },
+                fontFamily = Poppins,
+                fontSize = 14.sp,
+                lineHeight = 21.sp,
+                color = MaterialTheme.colorScheme.secondary
+            )
         }
     }
 }
@@ -209,89 +351,6 @@ private fun AccountSection(
                 iconRes = R.drawable.profile,
                 hasArrow = true,
                 onClick = onEditProfileClick
-            )
-            // Change Password скрыт — endpoint /auth/change-password отсутствует на backend
-        }
-    }
-}
-
-@Composable
-private fun AppSettingsSection(
-    notificationsEnabled: Boolean,
-    darkModeEnabled: Boolean,
-    onNotificationsChange: (Boolean) -> Unit,
-    onDarkModeChange: (Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column {
-            SettingsItemWithSwitchInCard(
-                title = "Notifications",
-                iconRes = R.drawable.notification,
-                checked = notificationsEnabled,
-                onCheckedChange = onNotificationsChange
-            )
-            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E5E5))
-            SettingsItemWithSwitchInCard(
-                title = "Dark Mode",
-                iconRes = R.drawable.dark_mode,
-                checked = darkModeEnabled,
-                onCheckedChange = onDarkModeChange
-            )
-            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E5E5))
-            SettingsItemInCard(
-                title = "Language",
-                iconRes = R.drawable.language,
-                hasArrow = true,
-                onClick = {}
-            )
-            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E5E5))
-            SettingsItemInCard(
-                title = "Privacy & Security",
-                iconRes = R.drawable.privacy,
-                hasArrow = true,
-                onClick = {}
-            )
-        }
-    }
-}
-
-@Composable
-private fun SupportSection(
-    onHelpCenterClick: () -> Unit,
-    onContactSupportClick: () -> Unit,
-    onTermsClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column {
-            SettingsItemInCard(
-                title = "Help Center",
-                iconRes = R.drawable.help,
-                hasArrow = true,
-                onClick = onHelpCenterClick
-            )
-            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E5E5))
-            SettingsItemInCard(
-                title = "Contact Support",
-                iconRes = R.drawable.support,
-                hasArrow = true,
-                onClick = onContactSupportClick
-            )
-            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E5E5))
-            SettingsItemInCard(
-                title = "Terms & Policies",
-                iconRes = R.drawable.term,
-                hasArrow = true,
-                onClick = onTermsClick
             )
         }
     }
@@ -335,7 +394,9 @@ private fun SettingsItemInCard(
                 modifier = Modifier.size(24.dp),
                 tint = MaterialTheme.colorScheme.primaryContainer
             )
+
             Spacer(modifier = Modifier.width(12.dp))
+
             Text(
                 text = title,
                 style = TextStyle(
@@ -346,6 +407,7 @@ private fun SettingsItemInCard(
                 )
             )
         }
+
         if (hasArrow) {
             Icon(
                 painter = painterResource(R.drawable.arrow_right),
@@ -354,52 +416,6 @@ private fun SettingsItemInCard(
                 tint = MaterialTheme.colorScheme.primaryContainer
             )
         }
-    }
-}
-
-@Composable
-private fun SettingsItemWithSwitchInCard(
-    title: String,
-    iconRes: Int,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                painter = painterResource(id = iconRes),
-                contentDescription = title,
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.primaryContainer
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = title,
-                style = TextStyle(
-                    fontFamily = Poppins,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0xFF1E1E2D),
-                uncheckedThumbColor = MaterialTheme.colorScheme.primaryContainer,
-                uncheckedTrackColor = Color.White,
-                uncheckedBorderColor = MaterialTheme.colorScheme.primaryContainer
-            )
-        )
     }
 }
 
@@ -426,7 +442,9 @@ private fun LogoutButton(onClick: () -> Unit) {
                 modifier = Modifier.size(20.dp),
                 tint = Color.Red
             )
+
             Spacer(modifier = Modifier.width(8.dp))
+
             Text(
                 text = "Logout",
                 style = TextStyle(

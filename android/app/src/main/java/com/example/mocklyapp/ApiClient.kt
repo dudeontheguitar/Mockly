@@ -6,10 +6,11 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 object ApiClient {
 
-    private const val BASE_URL = "http://10.0.2.2:8080/api/"
+    private const val BASE_URL = "https://api.iness.app/api/"
 
     private fun baseLoggingInterceptor(): HttpLoggingInterceptor =
         HttpLoggingInterceptor().apply {
@@ -18,19 +19,21 @@ object ApiClient {
 
     private fun createClient(authLocal: AuthLocalDataSource?): OkHttpClient {
         val builder = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
             .addInterceptor(baseLoggingInterceptor())
 
         if (authLocal != null) {
             val authInterceptor = Interceptor { chain ->
                 val original = chain.request()
 
-                // не добавляем токен для /auth/*
                 if (original.url.encodedPath.contains("/auth/")) {
                     return@Interceptor chain.proceed(original)
                 }
 
                 val tokens = authLocal.getTokens()
-                val newRequest = if (tokens != null) {
+                val request = if (tokens != null) {
                     original.newBuilder()
                         .addHeader("Authorization", "Bearer ${tokens.accessToken}")
                         .build()
@@ -38,13 +41,15 @@ object ApiClient {
                     original
                 }
 
-                chain.proceed(newRequest)
+                chain.proceed(request)
             }
+
             builder.addInterceptor(authInterceptor)
         }
 
         return builder.build()
     }
+
     val retrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
@@ -52,6 +57,7 @@ object ApiClient {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
+
     fun authedRetrofit(authLocal: AuthLocalDataSource): Retrofit {
         return Retrofit.Builder()
             .baseUrl(BASE_URL)

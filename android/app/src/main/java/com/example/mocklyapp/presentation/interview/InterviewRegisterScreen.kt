@@ -1,12 +1,19 @@
 package com.example.mocklyapp.presentation.screens
 
-import android.annotation.SuppressLint
-import android.os.Build
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -14,24 +21,14 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,8 +44,10 @@ import androidx.compose.ui.window.Dialog
 import com.example.mocklyapp.R
 import com.example.mocklyapp.presentation.interview.InterviewRegisterViewModel
 import com.example.mocklyapp.presentation.theme.Poppins
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
-@SuppressLint("ObsoleteSdkInt")
 @Composable
 fun InterviewRegisterScreen(
     viewModel: InterviewRegisterViewModel,
@@ -56,34 +55,12 @@ fun InterviewRegisterScreen(
     onSuccessOK: (sessionId: String) -> Unit,
     jobTitle: String,
     company: String,
+    location: String,
     interviewerName: String,
-    interviewerId: String
-){
+    scheduledAt: String?,
+    durationMinutes: Int
+) {
     val state by viewModel.state.collectAsState()
-
-    val options = listOf(
-        "Today, 3:00 PM",
-        "Today, 5:00 PM",
-        "Tomorrow, 3:00 PM",
-        "Tomorrow, 5:00 PM"
-    )
-
-    val languageDropdown = listOf(
-        "Kazakh",
-        "English",
-        "Russian",
-        "Japanese"
-    )
-
-    val levelDropdown = listOf(
-        "Intern",
-        "Junior",
-        "Middle",
-        "Senior"
-    )
-
-    var comment by remember { mutableStateOf("") }
-
 
     Surface(color = MaterialTheme.colorScheme.onBackground) {
         Column(
@@ -131,13 +108,10 @@ fun InterviewRegisterScreen(
                         .background(Color.White)
                         .padding(16.dp)
                 ) {
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Image(
                             painter = painterResource(R.drawable.alem),
-                            contentDescription = "",
+                            contentDescription = null,
                             modifier = Modifier
                                 .size(68.dp)
                                 .clip(CircleShape),
@@ -156,9 +130,11 @@ fun InterviewRegisterScreen(
                                 ),
                                 color = MaterialTheme.colorScheme.primaryContainer
                             )
+
                             Spacer(Modifier.height(4.dp))
+
                             Text(
-                                text = company,
+                                text = company.ifBlank { "Company not specified" },
                                 style = TextStyle(
                                     fontFamily = Poppins,
                                     fontSize = 18.sp,
@@ -179,67 +155,35 @@ fun InterviewRegisterScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.interview4),
-                            contentDescription = "",
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.primaryContainer,
-                        )
-                        Spacer(Modifier.width(8.dp))
-
-                        Text(
-                            text = "Interviewer: ",
-                            style = TextStyle(
-                                fontFamily = Poppins,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Normal
-                            ),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        )
-                        Text(
-                            text = interviewerName,
-                            style = TextStyle(
-                                fontFamily = Poppins,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.SemiBold
-                            ),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    }
+                    InfoLine(
+                        iconRes = R.drawable.interview4,
+                        label = "Interviewer",
+                        value = interviewerName
+                    )
 
                     Spacer(Modifier.height(14.dp))
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.duration),
-                            contentDescription = "",
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.primaryContainer
-                        )
-                        Spacer(Modifier.width(8.dp))
+                    InfoLine(
+                        iconRes = R.drawable.duration,
+                        label = "Duration",
+                        value = "$durationMinutes min"
+                    )
 
-                        Text(
-                            text = "Duration: ",
-                            style = TextStyle(
-                                fontFamily = Poppins,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Normal
-                            ),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        )
-                        Text(
-                            text = "30 min",
-                            style = TextStyle(
-                                fontFamily = Poppins,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.SemiBold
-                            ),
-                            color = MaterialTheme.colorScheme.primaryContainer
+                    Spacer(Modifier.height(14.dp))
+
+                    InfoLine(
+                        iconRes = R.drawable.duration,
+                        label = "Time",
+                        value = formatSlotTime(scheduledAt)
+                    )
+
+                    if (location.isNotBlank()) {
+                        Spacer(Modifier.height(14.dp))
+
+                        InfoLine(
+                            iconRes = R.drawable.profile,
+                            label = "Location",
+                            value = location
                         )
                     }
                 }
@@ -247,130 +191,37 @@ fun InterviewRegisterScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text = "Select Time",
-                style = TextStyle(
-                    fontFamily = Poppins,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.padding(start = 4.dp)
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TimeOption(
-                    time = options[0],
-                    selected = state.selectedTimeIndex == 0,
-                    onClick = { viewModel.setSelectedTime(0) },
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(Modifier.width(12.dp))
-                TimeOption(
-                    time = options[1],
-                    selected = state.selectedTimeIndex == 1,
-                    onClick = { viewModel.setSelectedTime(1) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TimeOption(
-                    time = options[2],
-                    selected = state.selectedTimeIndex == 2,
-                    onClick = { viewModel.setSelectedTime(2) },
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(Modifier.width(12.dp))
-                TimeOption(
-                    time = options[3],
-                    selected = state.selectedTimeIndex == 3,
-                    onClick = { viewModel.setSelectedTime(3) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Interview Format",
-                style = TextStyle(
-                    fontFamily = Poppins,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.padding(start = 4.dp)
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            Row(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White
+                )
             ) {
-                InterviewDropdown(
-                    format = "Language",
-                    options = languageDropdown,
-                    modifier = Modifier.weight(1f)
-                )
-
-                InterviewDropdown(
-                    format = "Junior",
-                    options = levelDropdown,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = comment,
-                onValueChange = { comment = it },
-                placeholder = {
+                Column(modifier = Modifier.padding(18.dp)) {
                     Text(
-                        text = "Note to Interviewer",
+                        text = "Before you join",
                         style = TextStyle(
                             fontFamily = Poppins,
-                            fontSize = 16.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
-                        color = Color(0x99060527),
-                        modifier = Modifier.padding(start = 4.dp)
+                        color = MaterialTheme.colorScheme.primaryContainer
                     )
-                },
-                textStyle = TextStyle(
-                    fontFamily = Poppins,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ),
-                maxLines = 3,
-                singleLine = false,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(4.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.primaryContainer,
-                    unfocusedTextColor = MaterialTheme.colorScheme.primaryContainer,
-                    focusedBorderColor = MaterialTheme.colorScheme.primaryContainer,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.primaryContainer,
-                    cursorColor = MaterialTheme.colorScheme.primaryContainer,
-                    unfocusedContainerColor = Color.White,
-                    focusedContainerColor = Color.White,
-                ),
-                shape = RoundedCornerShape(8.dp)
-            )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Text(
+                        text = "Please make sure your camera and microphone are available. The interview audio will be recorded for AI report generation.",
+                        style = TextStyle(
+                            fontFamily = Poppins,
+                            fontSize = 14.sp,
+                            lineHeight = 21.sp
+                        ),
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+            }
 
             Spacer(Modifier.height(20.dp))
 
@@ -385,13 +236,13 @@ fun InterviewRegisterScreen(
                 )
 
                 Text(
-                    text = "I agree to the interview guidliness",
+                    text = "I agree to the interview guidelines",
                     style = TextStyle(
                         fontFamily = Poppins,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold
                     ),
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    color = MaterialTheme.colorScheme.primaryContainer
                 )
             }
 
@@ -410,50 +261,32 @@ fun InterviewRegisterScreen(
                 )
             }
 
-            if (state.isAgree) {
-                Button(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .height(65.dp),
-                    colors = ButtonDefaults.buttonColors(MaterialTheme.colorScheme.primary),
-                    onClick = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            viewModel.register()
-                        }
-                    },
-                    enabled = !state.isLoading
-                ) {
-                    Text(
-                        text = if (state.isLoading) "Please wait..." else "Register",
-                        style = TextStyle(
-                            fontFamily = Poppins,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                        ),
-                        color = Color.White
-                    )
-                }
-            } else {
-                Button(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .height(65.dp),
-                    colors = ButtonDefaults.buttonColors(Color(0x990A0932)),
-                    onClick = { },
-                    enabled = false
-                ) {
-                    Text(
-                        text = "Register",
-                        style = TextStyle(
-                            fontFamily = Poppins,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                        ),
-                        color = Color.White
-                    )
-                }
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .height(65.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (state.isAgree) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        Color(0x990A0932)
+                    }
+                ),
+                onClick = {
+                    viewModel.register()
+                },
+                enabled = state.isAgree && !state.isLoading
+            ) {
+                Text(
+                    text = if (state.isLoading) "Please wait..." else "Book Interview",
+                    style = TextStyle(
+                        fontFamily = Poppins,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    ),
+                    color = Color.White
+                )
             }
 
             if (state.isSuccess) {
@@ -472,100 +305,47 @@ fun InterviewRegisterScreen(
 }
 
 @Composable
-private fun TimeOption(
-    time: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+private fun InfoLine(
+    iconRes: Int,
+    label: String,
+    value: String
 ) {
-    Box(
-        modifier = modifier
-            .padding(start = 4.dp, end = 4.dp)
-            .size(width = 185.dp, height = 55.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.White)
-            .clickable(onClick = onClick)
-            .border(
-                width = 1.dp,
-                color = Color(0x40000000),
-                shape = RoundedCornerShape(8.dp)
-            ),
-        contentAlignment = Alignment.Center
-    ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primaryContainer
+        )
+
+        Spacer(Modifier.width(8.dp))
+
         Text(
-            text = time,
+            text = "$label: ",
             style = TextStyle(
                 fontFamily = Poppins,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Normal
             ),
-            color = if (selected) Color.White else MaterialTheme.colorScheme.primaryContainer
+            color = MaterialTheme.colorScheme.primaryContainer
         )
-    }
-}
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun InterviewDropdown(
-    format: String,
-    options: List<String>,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var selected by remember { mutableStateOf(format) }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-        modifier = modifier
-    ) {
-        OutlinedTextField(
-            value = selected,
-            onValueChange = {},
-            readOnly = true,
-            modifier = Modifier
-                .menuAnchor()
-                .fillMaxWidth(),
-            textStyle = TextStyle(
+        Text(
+            text = value.ifBlank { "-" },
+            style = TextStyle(
                 fontFamily = Poppins,
-                fontSize = 14.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold
             ),
-            shape = RoundedCornerShape(8.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = Color.White,
-                focusedContainerColor = Color.White,
-                unfocusedBorderColor = Color(0xFFE0E0F0),
-                focusedBorderColor = MaterialTheme.colorScheme.primaryContainer,
-                unfocusedTextColor = MaterialTheme.colorScheme.primaryContainer,
-                focusedTextColor = MaterialTheme.colorScheme.primaryContainer
-            ),
-            trailingIcon = {
-                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-            }
+            color = MaterialTheme.colorScheme.primaryContainer
         )
-
-       ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option, fontFamily = Poppins) },
-                    onClick = {
-                        selected = option
-                        expanded = false
-                    }
-                )
-            }
-        }
     }
 }
 
 @Composable
 private fun RegisterSuccessDialog(
     onDismiss: () -> Unit,
-    onOk: () -> Unit,
+    onOk: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -573,11 +353,9 @@ private fun RegisterSuccessDialog(
             color = Color.White
         ) {
             Column(
-                modifier = Modifier
-                    .padding(24.dp),
+                modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-
                 Box(
                     modifier = Modifier
                         .size(70.dp)
@@ -607,7 +385,7 @@ private fun RegisterSuccessDialog(
                 Spacer(Modifier.height(10.dp))
 
                 Text(
-                    text = "You have registered successfully\nfor the interview",
+                    text = "You have booked the interview successfully.",
                     textAlign = TextAlign.Center,
                     fontFamily = Poppins,
                     fontSize = 14.sp,
@@ -635,5 +413,24 @@ private fun RegisterSuccessDialog(
                 }
             }
         }
+    }
+}
+
+private fun formatSlotTime(iso: String?): String {
+    if (iso.isNullOrBlank()) return "Time not specified"
+
+    return try {
+        val instant = Instant.parse(iso)
+        val zoned = instant.atZone(ZoneId.systemDefault())
+
+        val date = zoned.toLocalDate()
+            .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+
+        val time = zoned.toLocalTime()
+            .format(DateTimeFormatter.ofPattern("h:mm a"))
+
+        "$date, $time"
+    } catch (_: Exception) {
+        "Time not specified"
     }
 }

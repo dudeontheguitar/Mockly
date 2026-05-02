@@ -36,16 +36,19 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.example.mocklyapp.ApiClient
 import com.example.mocklyapp.R
+import com.example.mocklyapp.data.artifact.ArtifactRepositoryImpl
+import com.example.mocklyapp.data.artifact.remote.ArtifactApi
 import com.example.mocklyapp.data.auth.AuthRepositoryImpl
 import com.example.mocklyapp.data.auth.local.AuthLocalDataSource
 import com.example.mocklyapp.data.auth.remote.AuthApi
+import com.example.mocklyapp.data.interviewslot.InterviewSlotRepositoryImpl
+import com.example.mocklyapp.data.interviewslot.remote.InterviewSlotApi
 import com.example.mocklyapp.data.report.ReportRepositoryImpl
 import com.example.mocklyapp.data.report.remote.ReportApi
 import com.example.mocklyapp.data.session.SessionRepositoryImpl
 import com.example.mocklyapp.data.session.remote.SessionApi
 import com.example.mocklyapp.data.user.UserRepositoryImpl
 import com.example.mocklyapp.data.user.remote.UserApi
-import com.example.mocklyapp.domain.session.SessionRepository
 import com.example.mocklyapp.presentation.auth.login.LoginScreen
 import com.example.mocklyapp.presentation.auth.login.LoginViewModel
 import com.example.mocklyapp.presentation.auth.onboarding.OnboardingScreen1
@@ -53,15 +56,17 @@ import com.example.mocklyapp.presentation.auth.onboarding.OnboardingScreen2
 import com.example.mocklyapp.presentation.auth.onboarding.OnboardingScreen3
 import com.example.mocklyapp.presentation.auth.register.RegisterScreen
 import com.example.mocklyapp.presentation.auth.register.RegisterViewModel
+import com.example.mocklyapp.presentation.interview.CreateInterviewSlotScreen
+import com.example.mocklyapp.presentation.interview.CreateInterviewSlotViewModel
 import com.example.mocklyapp.presentation.interview.InterviewRegisterViewModel
 import com.example.mocklyapp.presentation.interview.InterviewResultsScreen
 import com.example.mocklyapp.presentation.interview.InterviewResultsViewModel
 import com.example.mocklyapp.presentation.interview.InterviewViewModel
 import com.example.mocklyapp.presentation.interview.InterviewerSessionsScreen
 import com.example.mocklyapp.presentation.screens.DiscoverScreen
+import com.example.mocklyapp.presentation.screens.DiscoverViewModel
 import com.example.mocklyapp.presentation.screens.InterviewRegisterScreen
 import com.example.mocklyapp.presentation.screens.InterviewScreen
-import com.example.mocklyapp.presentation.screens.MessageScreen
 import com.example.mocklyapp.presentation.session.MockInterviewScreen
 import com.example.mocklyapp.presentation.session.SessionDetailsScreen
 import com.example.mocklyapp.presentation.sessiondetails.SessionDetailsViewModel
@@ -104,7 +109,9 @@ fun AppNav(
                     }
                 },
                 onNextClick = {
-                    navController.navigate(Onboarding2) { launchSingleTop = true }
+                    navController.navigate(Onboarding2) {
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -119,7 +126,9 @@ fun AppNav(
                     }
                 },
                 onNextClick = {
-                    navController.navigate(Onboarding3) { launchSingleTop = true }
+                    navController.navigate(Onboarding3) {
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -228,14 +237,18 @@ fun AppNav(
                 when (role?.uppercase()) {
                     "CANDIDATE" -> {
                         navController.navigate(DiscoverRoute) {
-                            popUpTo(RoleEntryRoute) { inclusive = true }
+                            popUpTo(RoleEntryRoute) {
+                                inclusive = true
+                            }
                             launchSingleTop = true
                         }
                     }
 
                     "INTERVIEWER" -> {
                         navController.navigate(InterviewerRootRoute) {
-                            popUpTo(RoleEntryRoute) { inclusive = true }
+                            popUpTo(RoleEntryRoute) {
+                                inclusive = true
+                            }
                             launchSingleTop = true
                         }
                     }
@@ -256,7 +269,9 @@ fun AppNav(
                         }
 
                         navController.navigate(Login) {
-                            popUpTo(RoleEntryRoute) { inclusive = true }
+                            popUpTo(RoleEntryRoute) {
+                                inclusive = true
+                            }
                             launchSingleTop = true
                         }
                     }
@@ -268,7 +283,9 @@ fun AppNav(
             BottomNav(
                 onLogout = {
                     navController.navigate(Login) {
-                        popUpTo(DiscoverRoute) { inclusive = true }
+                        popUpTo(DiscoverRoute) {
+                            inclusive = true
+                        }
                         launchSingleTop = true
                     }
                 }
@@ -279,7 +296,9 @@ fun AppNav(
             InterviewerBottomNav(
                 onLogout = {
                     navController.navigate(Login) {
-                        popUpTo(InterviewerRootRoute) { inclusive = true }
+                        popUpTo(InterviewerRootRoute) {
+                            inclusive = true
+                        }
                         launchSingleTop = true
                     }
                 }
@@ -349,10 +368,10 @@ fun BottomNav(
     onLogout: () -> Unit
 ) {
     val nav = rememberNavController()
+
     val tabs = listOf(
         DiscoverRoute,
         InterviewRoute,
-        MessageRoute,
         SettingsRoute
     )
 
@@ -363,7 +382,11 @@ fun BottomNav(
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                BottomBar(nav, tabs, currentRoute)
+                BottomBar(
+                    navController = nav,
+                    tabs = tabs,
+                    currentRoute = currentRoute
+                )
             }
         }
     ) { innerPadding ->
@@ -375,7 +398,73 @@ fun BottomNav(
                 .background(MaterialTheme.colorScheme.onBackground)
         ) {
             composable<DiscoverRoute> {
-                DiscoverScreen()
+                val context = LocalContext.current
+                val authLocal = remember { AuthLocalDataSource(context) }
+
+                val authedRetrofit = remember {
+                    ApiClient.authedRetrofit(authLocal)
+                }
+
+                val userApi = remember {
+                    authedRetrofit.create(UserApi::class.java)
+                }
+
+                val userRepo = remember {
+                    UserRepositoryImpl(userApi)
+                }
+
+                val sessionApi = remember {
+                    authedRetrofit.create(SessionApi::class.java)
+                }
+
+                val sessionRepo = remember {
+                    SessionRepositoryImpl(sessionApi)
+                }
+
+                val interviewSlotApi = remember {
+                    authedRetrofit.create(InterviewSlotApi::class.java)
+                }
+
+                val interviewSlotRepo = remember {
+                    InterviewSlotRepositoryImpl(interviewSlotApi)
+                }
+
+                val reportApi = remember {
+                    authedRetrofit.create(ReportApi::class.java)
+                }
+
+                val reportRepo = remember {
+                    ReportRepositoryImpl(reportApi)
+                }
+
+                val vm = remember {
+                    DiscoverViewModel(
+                        userRepo = userRepo,
+                        sessionRepo = sessionRepo,
+                        interviewSlotRepo = interviewSlotRepo,
+                        reportRepo = reportRepo
+                    )
+                }
+
+                DiscoverScreen(
+                    viewModel = vm,
+                    onInterviewClick = {
+                        nav.navigate(InterviewRoute) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onSettingsClick = {
+                        nav.navigate(EditProfileRoute) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onSessionClick = { sessionId ->
+                        nav.navigate(SessionDetailsRoute(sessionId))
+                    },
+                    onResultClick = { sessionId ->
+                        nav.navigate(InterviewResultsRoute(sessionId))
+                    }
+                )
             }
 
             composable<InterviewRoute> {
@@ -399,10 +488,19 @@ fun BottomNav(
                     UserRepositoryImpl(userApi)
                 }
 
+                val interviewSlotApi = remember {
+                    authedRetrofit.create(InterviewSlotApi::class.java)
+                }
+
+                val interviewSlotRepo = remember {
+                    InterviewSlotRepositoryImpl(interviewSlotApi)
+                }
+
                 val vm = remember {
                     InterviewViewModel(
                         sessionRepo = sessionRepo,
-                        userRepo = userRepo
+                        userRepo = userRepo,
+                        interviewSlotRepo = interviewSlotRepo
                     )
                 }
 
@@ -410,10 +508,6 @@ fun BottomNav(
                     navController = nav,
                     viewModel = vm
                 )
-            }
-
-            composable<MessageRoute> {
-                MessageScreen()
             }
 
             composable<SettingsRoute> {
@@ -496,34 +590,35 @@ fun BottomNav(
                     ApiClient.authedRetrofit(authLocal)
                 }
 
-                val sessionApi = remember {
-                    authedRetrofit.create(SessionApi::class.java)
+                val interviewSlotApi = remember {
+                    authedRetrofit.create(InterviewSlotApi::class.java)
                 }
 
-                val sessionRepo: SessionRepository = remember {
-                    SessionRepositoryImpl(sessionApi)
+                val interviewSlotRepo = remember {
+                    InterviewSlotRepositoryImpl(interviewSlotApi)
                 }
 
-                val vm = remember(
-                    args.interviewerId,
-                    args.jobTitle,
-                    args.company
-                ) {
+                val vm = remember(args.slotId) {
                     InterviewRegisterViewModel(
-                        sessionRepo = sessionRepo,
-                        interviewerId = args.interviewerId,
+                        interviewSlotRepo = interviewSlotRepo,
+                        slotId = args.slotId,
                         interviewerName = args.interviewerName,
-                        jobTitle = args.jobTitle,
-                        company = args.company
+                        jobTitle = args.title,
+                        company = args.company,
+                        location = args.location,
+                        scheduledAt = args.scheduledAt,
+                        durationMinutes = args.durationMinutes
                     )
                 }
 
                 InterviewRegisterScreen(
                     viewModel = vm,
-                    jobTitle = args.jobTitle,
+                    jobTitle = args.title,
                     company = args.company,
+                    location = args.location,
                     interviewerName = args.interviewerName,
-                    interviewerId = args.interviewerId,
+                    scheduledAt = args.scheduledAt,
+                    durationMinutes = args.durationMinutes,
                     onBack = {
                         nav.popBackStack()
                     },
@@ -592,20 +687,43 @@ fun BottomNav(
                     SessionRepositoryImpl(sessionApi)
                 }
 
+                val artifactApi = remember {
+                    authedRetrofit.create(ArtifactApi::class.java)
+                }
+
+                val artifactRepo = remember {
+                    ArtifactRepositoryImpl(artifactApi)
+                }
+
+                val reportApi = remember {
+                    authedRetrofit.create(ReportApi::class.java)
+                }
+
+                val reportRepo = remember {
+                    ReportRepositoryImpl(reportApi)
+                }
+
                 MockInterviewScreen(
                     sessionId = args.sessionId,
                     onBack = {
                         nav.popBackStack()
                     },
-                    onEndInterview = { sessionId ->
-                        nav.navigate(InterviewResultsRoute(sessionId)) {
+                    onEndInterview = { sessionId, noReportReason ->
+                        nav.navigate(
+                            InterviewResultsRoute(
+                                sessionId = sessionId,
+                                noReportReason = noReportReason
+                            )
+                        ) {
                             popUpTo(MockInterviewRoute(args.sessionId)) {
                                 inclusive = true
                             }
                             launchSingleTop = true
                         }
                     },
-                    sessionRepository = sessionRepo
+                    sessionRepository = sessionRepo,
+                    artifactRepository = artifactRepo,
+                    reportRepository = reportRepo
                 )
             }
 
@@ -627,10 +745,11 @@ fun BottomNav(
                     ReportRepositoryImpl(reportApi)
                 }
 
-                val vm = remember(args.sessionId) {
+                val vm = remember(args.sessionId, args.noReportReason) {
                     InterviewResultsViewModel(
                         reportRepository = reportRepo,
-                        sessionId = args.sessionId
+                        sessionId = args.sessionId,
+                        noReportReason = args.noReportReason
                     )
                 }
 
@@ -664,11 +783,12 @@ fun BottomBar(
                 selected = selected,
                 onClick = {
                     navController.navigate(tab) {
-                        popUpTo(navController.graph.id) {
-                            saveState = true
+                        popUpTo(navController.graph.startDestinationId) {
+                            inclusive = false
+                            saveState = false
                         }
                         launchSingleTop = true
-                        restoreState = true
+                        restoreState = false
                     }
                 },
                 icon = {
@@ -679,10 +799,6 @@ fun BottomBar(
 
                         is InterviewRoute -> {
                             if (selected) R.drawable.interview else R.drawable.interview2
-                        }
-
-                        is MessageRoute -> {
-                            if (selected) R.drawable.message else R.drawable.message2
                         }
 
                         is SettingsRoute -> {
@@ -708,7 +824,6 @@ fun BottomBar(
                         text = when (tab) {
                             is DiscoverRoute -> "Discover"
                             is InterviewRoute -> "Interview"
-                            is MessageRoute -> "Message"
                             is SettingsRoute -> "Settings"
                             else -> ""
                         },
@@ -740,7 +855,6 @@ fun InterviewerBottomNav(
 
     val tabs = listOf(
         InterviewerSessionsRoute,
-        MessageRoute,
         SettingsRoute
     )
 
@@ -751,7 +865,11 @@ fun InterviewerBottomNav(
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                InterviewerBottomBar(nav, tabs, currentRoute)
+                InterviewerBottomBar(
+                    navController = nav,
+                    tabs = tabs,
+                    currentRoute = currentRoute
+                )
             }
         }
     ) { innerPadding ->
@@ -786,10 +904,19 @@ fun InterviewerBottomNav(
                     UserRepositoryImpl(userApi)
                 }
 
+                val interviewSlotApi = remember {
+                    authedRetrofit.create(InterviewSlotApi::class.java)
+                }
+
+                val interviewSlotRepo = remember {
+                    InterviewSlotRepositoryImpl(interviewSlotApi)
+                }
+
                 val vm = remember {
                     InterviewViewModel(
                         sessionRepo = sessionRepo,
-                        userRepo = userRepo
+                        userRepo = userRepo,
+                        interviewSlotRepo = interviewSlotRepo
                     )
                 }
 
@@ -797,6 +924,12 @@ fun InterviewerBottomNav(
                     viewModel = vm,
                     onSessionClick = { sessionId ->
                         nav.navigate(SessionDetailsRoute(sessionId))
+                    },
+                    onPastSessionClick = { sessionId ->
+                        nav.navigate(InterviewResultsRoute(sessionId))
+                    },
+                    onCreateSlotClick = {
+                        nav.navigate(CreateInterviewSlotRoute)
                     }
                 )
             }
@@ -855,20 +988,43 @@ fun InterviewerBottomNav(
                     SessionRepositoryImpl(sessionApi)
                 }
 
+                val artifactApi = remember {
+                    authedRetrofit.create(ArtifactApi::class.java)
+                }
+
+                val artifactRepo = remember {
+                    ArtifactRepositoryImpl(artifactApi)
+                }
+
+                val reportApi = remember {
+                    authedRetrofit.create(ReportApi::class.java)
+                }
+
+                val reportRepo = remember {
+                    ReportRepositoryImpl(reportApi)
+                }
+
                 MockInterviewScreen(
                     sessionId = args.sessionId,
                     onBack = {
                         nav.popBackStack()
                     },
-                    onEndInterview = { sessionId ->
-                        nav.navigate(InterviewResultsRoute(sessionId)) {
+                    onEndInterview = { sessionId, noReportReason ->
+                        nav.navigate(
+                            InterviewResultsRoute(
+                                sessionId = sessionId,
+                                noReportReason = noReportReason
+                            )
+                        ) {
                             popUpTo(MockInterviewRoute(args.sessionId)) {
                                 inclusive = true
                             }
                             launchSingleTop = true
                         }
                     },
-                    sessionRepository = sessionRepo
+                    sessionRepository = sessionRepo,
+                    artifactRepository = artifactRepo,
+                    reportRepository = reportRepo
                 )
             }
 
@@ -890,10 +1046,11 @@ fun InterviewerBottomNav(
                     ReportRepositoryImpl(reportApi)
                 }
 
-                val vm = remember(args.sessionId) {
+                val vm = remember(args.sessionId, args.noReportReason) {
                     InterviewResultsViewModel(
                         reportRepository = reportRepo,
-                        sessionId = args.sessionId
+                        sessionId = args.sessionId,
+                        noReportReason = args.noReportReason
                     )
                 }
 
@@ -908,10 +1065,6 @@ fun InterviewerBottomNav(
                         }
                     }
                 )
-            }
-
-            composable<MessageRoute> {
-                MessageScreen()
             }
 
             composable<SettingsRoute> {
@@ -983,6 +1136,44 @@ fun InterviewerBottomNav(
                     }
                 )
             }
+
+            composable<CreateInterviewSlotRoute> {
+                val context = LocalContext.current
+                val authLocal = remember { AuthLocalDataSource(context) }
+
+                val authedRetrofit = remember {
+                    ApiClient.authedRetrofit(authLocal)
+                }
+
+                val interviewSlotApi = remember {
+                    authedRetrofit.create(InterviewSlotApi::class.java)
+                }
+
+                val interviewSlotRepo = remember {
+                    InterviewSlotRepositoryImpl(interviewSlotApi)
+                }
+
+                val vm = remember {
+                    CreateInterviewSlotViewModel(
+                        interviewSlotRepo = interviewSlotRepo
+                    )
+                }
+
+                CreateInterviewSlotScreen(
+                    viewModel = vm,
+                    onBack = {
+                        nav.popBackStack()
+                    },
+                    onCreated = {
+                        nav.navigate(InterviewerSessionsRoute) {
+                            popUpTo(CreateInterviewSlotRoute) {
+                                inclusive = true
+                            }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
         }
     }
 }
@@ -1001,21 +1192,18 @@ fun InterviewerBottomBar(
                 selected = selected,
                 onClick = {
                     navController.navigate(tab) {
-                        popUpTo(navController.graph.id) {
-                            saveState = true
+                        popUpTo(navController.graph.startDestinationId) {
+                            inclusive = false
+                            saveState = false
                         }
                         launchSingleTop = true
-                        restoreState = true
+                        restoreState = false
                     }
                 },
                 icon = {
                     val iconRes = when (tab) {
                         is InterviewerSessionsRoute -> {
                             if (selected) R.drawable.interview else R.drawable.interview2
-                        }
-
-                        is MessageRoute -> {
-                            if (selected) R.drawable.message else R.drawable.message2
                         }
 
                         is SettingsRoute -> {
@@ -1040,7 +1228,6 @@ fun InterviewerBottomBar(
                     Text(
                         text = when (tab) {
                             is InterviewerSessionsRoute -> "Sessions"
-                            is MessageRoute -> "Message"
                             is SettingsRoute -> "Settings"
                             else -> ""
                         },

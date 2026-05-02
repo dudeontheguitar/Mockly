@@ -1,6 +1,8 @@
 package com.example.mocklyapp.domain.session
 
-import com.example.mocklyapp.domain.session.model.*
+import com.example.mocklyapp.domain.session.model.LiveKitToken
+import com.example.mocklyapp.domain.session.model.Session
+import com.example.mocklyapp.domain.session.model.SessionStatus
 
 interface SessionRepository {
 

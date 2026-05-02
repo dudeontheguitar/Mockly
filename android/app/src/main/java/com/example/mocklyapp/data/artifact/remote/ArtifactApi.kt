@@ -1,14 +1,15 @@
 package com.example.mocklyapp.data.artifact.remote
 
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 
 data class RequestUploadRequestDto(
-    val type: String,          // "AUDIO_MIXED"
+    val type: String,
     val fileName: String,
     val fileSizeBytes: Long,
-    val contentType: String    // "audio/mpeg"
+    val contentType: String
 )
 
 data class RequestUploadResponseDto(
@@ -27,10 +28,10 @@ data class ArtifactResponseDto(
     val id: String,
     val sessionId: String,
     val type: String,
-    val storageUrl: String,
+    val storageUrl: String?,
     val durationSec: Int?,
     val sizeBytes: Long?,
-    val createdAt: String
+    val createdAt: String?
 )
 
 interface ArtifactApi {
@@ -47,4 +48,9 @@ interface ArtifactApi {
         @Path("artifactId") artifactId: String,
         @Body body: CompleteUploadRequestDto
     ): ArtifactResponseDto
+
+    @GET("sessions/{sessionId}/artifacts")
+    suspend fun listArtifacts(
+        @Path("sessionId") sessionId: String
+    ): List<ArtifactResponseDto>
 }

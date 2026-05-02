@@ -7,7 +7,9 @@ data class User(
     val role: String,
     val avatarUrl: String?,
     val level: String?,
-    val skills: List<String> = emptyList()
+    val skills: List<String> = emptyList(),
+    val bio: String? = null,
+    val location: String? = null
 ) {
     val name: String
         get() = displayName.trim().substringBefore(" ")

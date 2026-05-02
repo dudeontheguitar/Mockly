@@ -2,7 +2,17 @@ package com.example.mocklyapp.presentation.session
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -66,9 +76,7 @@ fun SessionDetailsScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = "Failed to load session.",
                                 style = TextStyle(
@@ -101,8 +109,11 @@ fun SessionDetailsScreen(
 
                 else -> {
                     SessionDetailsContent(
-                        title = state.title.ifBlank { "Mock Interview" },
-                        company = state.company.ifBlank { "LiveKit" },
+                        title = state.title,
+                        company = state.company,
+                        location = state.location,
+                        description = state.description,
+                        durationMinutes = state.durationMinutes,
                         interviewerName = state.interviewerName,
                         candidateName = state.candidateName,
                         formattedTime = state.formattedTime,
@@ -152,6 +163,9 @@ private fun TopBar(
 private fun SessionDetailsContent(
     title: String,
     company: String,
+    location: String,
+    description: String,
+    durationMinutes: Int,
     interviewerName: String,
     candidateName: String,
     formattedTime: String,
@@ -192,7 +206,7 @@ private fun SessionDetailsContent(
 
                 Column {
                     Text(
-                        text = title,
+                        text = title.ifBlank { "Interview Session" },
                         style = TextStyle(
                             fontFamily = Poppins,
                             fontWeight = FontWeight.SemiBold,
@@ -201,15 +215,17 @@ private fun SessionDetailsContent(
                         color = MaterialTheme.colorScheme.primaryContainer
                     )
 
-                    Text(
-                        text = company,
-                        style = TextStyle(
-                            fontFamily = Poppins,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Normal
-                        ),
-                        color = MaterialTheme.colorScheme.secondary
-                    )
+                    if (company.isNotBlank()) {
+                        Text(
+                            text = company,
+                            style = TextStyle(
+                                fontFamily = Poppins,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Normal
+                            ),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
                 }
             }
 
@@ -243,7 +259,7 @@ private fun SessionDetailsContent(
             InfoRow(
                 iconRes = R.drawable.duration,
                 label = "Duration",
-                value = "30 min"
+                value = "$durationMinutes min"
             )
 
             Spacer(Modifier.height(10.dp))
@@ -254,6 +270,16 @@ private fun SessionDetailsContent(
                 value = formattedTime
             )
 
+            if (location.isNotBlank()) {
+                Spacer(Modifier.height(10.dp))
+
+                InfoRow(
+                    iconRes = R.drawable.profile,
+                    label = "Location",
+                    value = location
+                )
+            }
+
             Spacer(Modifier.height(10.dp))
 
             InfoRow(
@@ -261,39 +287,20 @@ private fun SessionDetailsContent(
                 label = "Status",
                 value = statusText
             )
-        }
-    }
 
-    Spacer(Modifier.height(20.dp))
+            if (description.isNotBlank()) {
+                Spacer(Modifier.height(16.dp))
 
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 20.dp)
-        ) {
-            Text(
-                text = "Device Check",
-                style = TextStyle(
-                    fontFamily = Poppins,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 20.sp
-                ),
-                color = MaterialTheme.colorScheme.primaryContainer
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            DeviceRow("Camera", "Ready")
-            DeviceRow("Microphone", "Ready")
-            DeviceRow("Connection", "Good")
+                Text(
+                    text = description,
+                    style = TextStyle(
+                        fontFamily = Poppins,
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp
+                    ),
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
         }
     }
 
@@ -315,7 +322,7 @@ private fun SessionDetailsContent(
                     0,
                     5
                 )
-                append("Make sure you're in a quiet environment and have good lighting for the best interview experience.")
+                append("Make sure you're in a quiet environment. Camera and microphone permissions will be requested when you join.")
             },
             modifier = Modifier.padding(18.dp),
             style = TextStyle(
@@ -390,46 +397,5 @@ private fun InfoRow(
             ),
             color = MaterialTheme.colorScheme.primaryContainer
         )
-    }
-}
-
-@Composable
-private fun DeviceRow(
-    label: String,
-    status: String
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = TextStyle(
-                fontFamily = Poppins,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Normal
-            ),
-            color = MaterialTheme.colorScheme.primaryContainer
-        )
-
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(Color(0xFF26A65B))
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-        ) {
-            Text(
-                text = status,
-                style = TextStyle(
-                    fontFamily = Poppins,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = Color.White
-            )
-        }
     }
 }

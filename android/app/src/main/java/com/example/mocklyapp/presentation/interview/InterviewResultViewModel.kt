@@ -21,12 +21,14 @@ data class InterviewResultsState(
     val isWaitingForReport: Boolean = false,
     val report: InterviewReport? = null,
     val error: String? = null,
-    val message: String? = null
+    val message: String? = null,
+    val noReportReason: String? = null
 )
 
 class InterviewResultsViewModel(
     private val reportRepository: ReportRepository,
-    private val sessionId: String
+    private val sessionId: String,
+    private val noReportReason: String? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(InterviewResultsState())
@@ -37,14 +39,27 @@ class InterviewResultsViewModel(
     fun startPolling() {
         pollingJob?.cancel()
 
+        if (!noReportReason.isNullOrBlank()) {
+            _state.value = InterviewResultsState(
+                isLoading = false,
+                isWaitingForReport = false,
+                report = null,
+                error = null,
+                message = null,
+                noReportReason = noReportReason
+            )
+            return
+        }
+
         pollingJob = viewModelScope.launch {
             _state.value = InterviewResultsState(
                 isLoading = true,
+                isWaitingForReport = true,
                 message = "Preparing report..."
             )
 
             var attempts = 0
-            val maxAttempts = 40
+            val maxAttempts = 60
 
             while (attempts < maxAttempts) {
                 attempts++
@@ -86,7 +101,11 @@ class InterviewResultsViewModel(
                 isLoading = false,
                 isWaitingForReport = status == "PENDING" || status == "PROCESSING",
                 report = report,
-                error = null,
+                error = if (status == "FAILED") {
+                    report.errorMessage ?: "Report generation failed."
+                } else {
+                    null
+                },
                 message = when (status) {
                     "READY" -> null
                     "FAILED" -> report.errorMessage ?: "Report generation failed."

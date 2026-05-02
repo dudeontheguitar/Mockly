@@ -12,6 +12,9 @@ interface UserRepository {
         name: String?,
         surname: String?,
         avatarUrl: String?,
-        level: String?
+        level: String?,
+        skills: List<String>,
+        bio: String?,
+        location: String?
     ): User
 }

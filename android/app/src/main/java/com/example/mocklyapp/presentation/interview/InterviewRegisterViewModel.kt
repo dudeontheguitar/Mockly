@@ -2,7 +2,7 @@ package com.example.mocklyapp.presentation.interview
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.mocklyapp.domain.session.SessionRepository
+import com.example.mocklyapp.domain.interviewslot.InterviewSlotRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -12,13 +12,8 @@ import retrofit2.HttpException
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneId
-import java.time.ZonedDateTime
 
 data class InterviewRegisterUiState(
-    val selectedTimeIndex: Int? = null,
     val isAgree: Boolean = false,
     val isLoading: Boolean = false,
     val isSuccess: Boolean = false,
@@ -27,24 +22,18 @@ data class InterviewRegisterUiState(
 )
 
 class InterviewRegisterViewModel(
-    private val sessionRepo: SessionRepository,
-    private val interviewerId: String,
+    private val interviewSlotRepo: InterviewSlotRepository,
+    private val slotId: String,
     val interviewerName: String,
     val jobTitle: String,
-    val company: String
+    val company: String,
+    val location: String,
+    val scheduledAt: String?,
+    val durationMinutes: Int
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(InterviewRegisterUiState())
     val state: StateFlow<InterviewRegisterUiState> = _state
-
-    fun setSelectedTime(index: Int) {
-        _state.update {
-            it.copy(
-                selectedTimeIndex = index,
-                error = null
-            )
-        }
-    }
 
     fun setAgree(value: Boolean) {
         _state.update {
@@ -57,17 +46,6 @@ class InterviewRegisterViewModel(
 
     fun register() {
         val currentState = _state.value
-
-        val selectedIndex = currentState.selectedTimeIndex
-        if (selectedIndex == null) {
-            _state.update {
-                it.copy(
-                    error = "Please select time",
-                    isLoading = false
-                )
-            }
-            return
-        }
 
         if (!currentState.isAgree) {
             _state.update {
@@ -90,18 +68,13 @@ class InterviewRegisterViewModel(
                     )
                 }
 
-                val scheduledAt = buildScheduledAt(selectedIndex)
-
-                val session = sessionRepo.createSession(
-                    interviewerId = interviewerId,
-                    scheduledAt = scheduledAt
-                )
+                val result = interviewSlotRepo.bookSlot(slotId)
 
                 _state.update {
                     it.copy(
                         isLoading = false,
                         isSuccess = true,
-                        createdSessionId = session.id,
+                        createdSessionId = result.sessionId,
                         error = null
                     )
                 }
@@ -117,40 +90,6 @@ class InterviewRegisterViewModel(
         }
     }
 
-    private fun buildScheduledAt(index: Int): String {
-        val today = LocalDate.now()
-
-        val date: LocalDate
-        val time: LocalTime
-
-        when (index) {
-            0 -> {
-                date = today
-                time = LocalTime.of(15, 0)
-            }
-
-            1 -> {
-                date = today
-                time = LocalTime.of(17, 0)
-            }
-
-            2 -> {
-                date = today.plusDays(1)
-                time = LocalTime.of(15, 0)
-            }
-
-            else -> {
-                date = today.plusDays(1)
-                time = LocalTime.of(17, 0)
-            }
-        }
-
-        return ZonedDateTime
-            .of(date, time, ZoneId.systemDefault())
-            .toInstant()
-            .toString()
-    }
-
     private fun mapError(e: Throwable): String {
         return when (e) {
             is HttpException -> {
@@ -162,8 +101,11 @@ class InterviewRegisterViewModel(
                 }
 
                 when {
-                    backendMessage?.contains("active session", ignoreCase = true) == true ->
-                        "You are already registered for an interview.\nPlease complete or cancel your current session before booking a new one."
+                    backendMessage?.contains("already", ignoreCase = true) == true ->
+                        "This interview slot is already booked."
+
+                    backendMessage?.contains("not found", ignoreCase = true) == true ->
+                        "Interview slot was not found."
 
                     !backendMessage.isNullOrBlank() ->
                         backendMessage
@@ -183,7 +125,7 @@ class InterviewRegisterViewModel(
                 "Network error. Please check your connection."
 
             else ->
-                e.message ?: "Failed to register for interview."
+                e.message ?: "Failed to book interview."
         }
     }
 }

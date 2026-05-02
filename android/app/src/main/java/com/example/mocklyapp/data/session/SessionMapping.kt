@@ -2,22 +2,40 @@ package com.example.mocklyapp.data.session
 
 import com.example.mocklyapp.data.session.remote.SessionArtifactDto
 import com.example.mocklyapp.data.session.remote.SessionDto
+import com.example.mocklyapp.data.session.remote.SessionInterviewDto
 import com.example.mocklyapp.data.session.remote.SessionParticipantDto
-import com.example.mocklyapp.domain.session.model.*
+import com.example.mocklyapp.domain.session.model.LiveKitToken
+import com.example.mocklyapp.domain.session.model.Session
+import com.example.mocklyapp.domain.session.model.SessionArtifact
+import com.example.mocklyapp.domain.session.model.SessionInterview
+import com.example.mocklyapp.domain.session.model.SessionParticipant
+import com.example.mocklyapp.domain.session.model.SessionRole
+import com.example.mocklyapp.domain.session.model.SessionStatus
 
 fun SessionDto.toDomain(): Session =
     Session(
         id = id,
         createdBy = createdBy,
         creatorDisplayName = creatorDisplayName,
-        status = SessionStatus.valueOf(status),
+        status = status.toSessionStatus(),
         startAt = startAt,
         endsAt = endsAt,
         roomProvider = roomProvider,
         roomId = roomId,
         recordingId = recordingId,
-        participants = participants.map { it.toDomain() },
-        artifacts = artifacts.map { it.toDomain() }
+        interview = interview?.toDomain(),
+        participants = participants.orEmpty().map { it.toDomain() },
+        artifacts = artifacts.orEmpty().map { it.toDomain() }
+    )
+
+fun SessionInterviewDto.toDomain(): SessionInterview =
+    SessionInterview(
+        slotId = slotId,
+        title = title,
+        company = company,
+        location = location,
+        description = description,
+        durationMinutes = durationMinutes
     )
 
 fun SessionParticipantDto.toDomain(): SessionParticipant =
@@ -26,7 +44,8 @@ fun SessionParticipantDto.toDomain(): SessionParticipant =
         userId = userId,
         userDisplayName = userDisplayName,
         userEmail = userEmail,
-        roleInSession = SessionRole.valueOf(roleInSession),
+        userAvatarUrl = userAvatarUrl,
+        roleInSession = roleInSession.toSessionRole(),
         joinedAt = joinedAt,
         leftAt = leftAt
     )
@@ -39,3 +58,15 @@ fun SessionArtifactDto.toDomain(): SessionArtifact =
         durationSec = durationSec,
         sizeBytes = sizeBytes
     )
+
+private fun String.toSessionStatus(): SessionStatus {
+    return runCatching {
+        SessionStatus.valueOf(this)
+    }.getOrDefault(SessionStatus.SCHEDULED)
+}
+
+private fun String.toSessionRole(): SessionRole {
+    return runCatching {
+        SessionRole.valueOf(this)
+    }.getOrDefault(SessionRole.CANDIDATE)
+}

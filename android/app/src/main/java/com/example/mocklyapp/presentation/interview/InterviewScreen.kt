@@ -2,11 +2,23 @@ package com.example.mocklyapp.presentation.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SecondaryTabRow
@@ -33,10 +45,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.mocklyapp.R
+import com.example.mocklyapp.domain.interviewslot.model.InterviewSlot
 import com.example.mocklyapp.domain.session.model.Session
 import com.example.mocklyapp.domain.session.model.SessionRole
-import com.example.mocklyapp.domain.session.model.SessionStatus
-import com.example.mocklyapp.models.OngoingInterviewItem
 import com.example.mocklyapp.presentation.interview.InterviewViewModel
 import com.example.mocklyapp.presentation.navigation.InterviewRegister
 import com.example.mocklyapp.presentation.navigation.SessionDetailsRoute
@@ -45,6 +56,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import com.example.mocklyapp.presentation.navigation.InterviewResultsRoute
 
 @Composable
 fun InterviewScreen(
@@ -62,17 +74,21 @@ fun InterviewScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             item {
-                val name = "${state.name}"
-                Header(userName = name.ifBlank { "User" })
+                Header(userName = state.name.ifBlank { "User" })
             }
+
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
             item {
                 MyInterviews(
+                    isLoading = state.isLoading,
                     upcomingSessions = state.upcoming,
                     pastSessions = state.past,
-                    onSessionClick = { sessionId ->
+                    onUpcomingSessionClick = { sessionId ->
                         navController.navigate(SessionDetailsRoute(sessionId))
+                    },
+                    onPastSessionClick = { sessionId ->
+                        navController.navigate(InterviewResultsRoute(sessionId))
                     }
                 )
             }
@@ -80,14 +96,31 @@ fun InterviewScreen(
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
             item {
-                AvailableInterview(navController = navController)
+                AvailableInterviewSlots(
+                    isLoading = state.isSlotsLoading,
+                    slots = state.availableSlots,
+                    error = state.slotsError,
+                    onSlotClick = { slot ->
+                        navController.navigate(
+                            InterviewRegister(
+                                slotId = slot.id,
+                                title = slot.title,
+                                company = slot.company,
+                                location = slot.location,
+                                interviewerName = slot.interviewer?.displayName ?: "Interviewer",
+                                scheduledAt = slot.scheduledAt,
+                                durationMinutes = slot.durationMinutes
+                            )
+                        )
+                    }
+                )
             }
 
             if (state.error != null) {
                 item {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = state.error!!,
+                        text = state.error ?: "",
                         color = Color.Red,
                         style = TextStyle(
                             fontFamily = Poppins,
@@ -101,7 +134,6 @@ fun InterviewScreen(
     }
 }
 
-
 @Composable
 private fun Header(userName: String) {
     Row(
@@ -111,10 +143,7 @@ private fun Header(userName: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -142,6 +171,7 @@ private fun Header(userName: String) {
                     ),
                     color = MaterialTheme.colorScheme.primaryContainer
                 )
+
                 Text(
                     text = userName,
                     style = TextStyle(
@@ -164,7 +194,7 @@ private fun Header(userName: String) {
         ) {
             Icon(
                 painter = painterResource(R.drawable.outline_notifications_24),
-                contentDescription = "",
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier.size(20.dp)
             )
@@ -174,22 +204,88 @@ private fun Header(userName: String) {
 
 @Composable
 private fun MyInterviews(
+    isLoading: Boolean,
     upcomingSessions: List<Session>,
     pastSessions: List<Session>,
-    onSessionClick: (String) -> Unit
-) {
+    onUpcomingSessionClick: (String) -> Unit,
+    onPastSessionClick: (String) -> Unit
+){
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Upcoming", "Past")
 
-    Column(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        // ... твой код заголовка и табов ...
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "My Interviews",
+            style = TextStyle(
+                fontFamily = Poppins,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            ),
+            color = MaterialTheme.colorScheme.primaryContainer
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        SecondaryTabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.primaryContainer,
+            indicator = {
+                TabRowDefaults.SecondaryIndicator(
+                    modifier = Modifier
+                        .tabIndicatorOffset(selectedTab)
+                        .padding(horizontal = 48.dp)
+                        .height(3.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                )
+            },
+            divider = {}
+        ) {
+            tabs.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { selectedTab = index }
+                ) {
+                    Text(
+                        text = title,
+                        style = TextStyle(
+                            fontFamily = Poppins,
+                            fontSize = 16.sp,
+                            fontWeight = if (selectedTab == index) {
+                                FontWeight.SemiBold
+                            } else {
+                                FontWeight.Normal
+                            }
+                        ),
+                        color = if (selectedTab == index) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.secondary
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
+            return
+        }
 
         val currentList = if (selectedTab == 0) upcomingSessions else pastSessions
 
         if (currentList.isEmpty()) {
-            Spacer(Modifier.height(12.dp))
             Text(
                 text = "No interviews yet",
                 style = TextStyle(
@@ -203,7 +299,13 @@ private fun MyInterviews(
             currentList.forEach { session ->
                 SessionCard(
                     session = session,
-                    onClick = { onSessionClick(session.id) }
+                    onClick = {
+                        if (selectedTab == 0) {
+                            onUpcomingSessionClick(session.id)
+                        } else {
+                            onPastSessionClick(session.id)
+                        }
+                    }
                 )
                 Spacer(Modifier.height(12.dp))
             }
@@ -216,38 +318,33 @@ private fun SessionCard(
     session: Session,
     onClick: () -> Unit
 ) {
-
-    // имя интервьюера из участников
     val interviewerName = session.participants
         .firstOrNull { it.roleInSession == SessionRole.INTERVIEWER }
         ?.userDisplayName
         ?: "Interviewer"
 
-    // красивое время справа
-    val formattedTime = session.startAt?.let { iso ->
-        try {
-            val instant = Instant.parse(iso)
-            val zoned = instant.atZone(ZoneId.systemDefault())
+    val title = session.interview?.title
+        ?.takeIf { it.isNotBlank() }
+        ?: "Interview Session"
 
-            val today = LocalDate.now()
-            val dateLabel = when (zoned.toLocalDate()) {
-                today -> "Today"
-                today.plusDays(1) -> "Tomorrow"
-                else -> zoned.toLocalDate().toString()
-            }
+    val subtitle = buildString {
+        val company = session.interview?.company.orEmpty()
+        val location = session.interview?.location.orEmpty()
 
-            val timeLabel = zoned.toLocalTime()
-                .format(DateTimeFormatter.ofPattern("h:mm a"))
+        if (company.isNotBlank()) append(company)
+        if (company.isNotBlank() && location.isNotBlank()) append(" • ")
+        if (location.isNotBlank()) append(location)
 
-            "$dateLabel, $timeLabel"
-        } catch (_: Exception) {
-            "-"
-        }
-    } ?: "-"
+        if (isBlank()) append(interviewerName)
+    }
+
+    val formattedTime = formatSessionTime(session.startAt)
 
     Card(
         shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         colors = androidx.compose.material3.CardDefaults.cardColors(
             containerColor = Color.White
         )
@@ -259,14 +356,12 @@ private fun SessionCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-
-            Column {
-                // ВЕРХНЯЯ СТРОКА — ИМЯ ИНТЕРВЬЮЕРА
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = interviewerName,
+                    text = title,
                     style = TextStyle(
                         fontFamily = Poppins,
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     ),
                     color = MaterialTheme.colorScheme.primaryContainer
@@ -274,23 +369,24 @@ private fun SessionCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // НИЖНЯЯ СТРОКА — ПРОСТО ОПИСАНИЕ
                 Text(
-                    text = "Real mock interview",
+                    text = subtitle,
                     style = TextStyle(
                         fontFamily = Poppins,
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Normal
                     ),
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                 )
             }
 
+            Spacer(Modifier.width(12.dp))
+
             Text(
                 text = formattedTime,
                 style = TextStyle(
                     fontFamily = Poppins,
-                    fontSize = 16.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
                 ),
                 color = MaterialTheme.colorScheme.primaryContainer
@@ -300,51 +396,15 @@ private fun SessionCard(
 }
 
 @Composable
-private fun AvailableInterview(navController: NavHostController) {
-    val cards = listOf(
-        OngoingInterviewItem(
-            title = "Frontend Developer",
-            company = "Kaspi",
-            location = "Remote",
-            status = "Start",
-            interviewerName = "Azamat S.",
-            interviewerId = "8ffc3fff-ce0a-4530-8bd6-ba0d208d6719"
-        ),
-        OngoingInterviewItem(
-            title = "Product Manager",
-            company = "Tele2",
-            location = "Remote",
-            status = "Start",
-            interviewerName = "Diana O.",
-            interviewerId = "fbae7d5d-9be5-43dc-850d-f14d71b1b5f4"
-        ),
-        OngoingInterviewItem(
-            title = "QA Engineer",
-            company = "Arbuz",
-            location = "Remote",
-            status = "Waiting",
-            interviewerName = "Batyrkhan M.",
-            interviewerId = "dd50f045-6456-4572-a262-d630b8115dd6"
-        ),
-        OngoingInterviewItem(
-            title = "System Analyst",
-            company = "Freedom Bank",
-            location = "Remote",
-            status = "Start",
-            interviewerName = "Baglan N.",
-            interviewerId = "f76f86b8-642a-49d6-b1de-3cdf41f8e324"
-        )
-    )
-
-    var showDialog by remember { androidx.compose.runtime.mutableStateOf(false) }
-    var selectedItem by remember { androidx.compose.runtime.mutableStateOf<OngoingInterviewItem?>(null) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-    ) {
+private fun AvailableInterviewSlots(
+    isLoading: Boolean,
+    slots: List<InterviewSlot>,
+    error: String?,
+    onSlotClick: (InterviewSlot) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Ongoing Interview",
+            text = "Available Interviews",
             style = TextStyle(
                 fontFamily = Poppins,
                 fontSize = 16.sp,
@@ -355,154 +415,47 @@ private fun AvailableInterview(navController: NavHostController) {
 
         Spacer(Modifier.height(12.dp))
 
-        cards.forEach { item ->
-            OngoingCard(
-                item = item,
-                onClick = {
-                    if (item.status == "Start") {
-                        selectedItem = item
-                        showDialog = true
-                    }
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
-            )
-            Spacer(Modifier.height(12.dp))
-        }
-    }
-
-    if (showDialog && selectedItem != null) {
-        InterviewTypeDialog(
-            onDismiss = { showDialog = false },
-            onRealPerson = {
-                val item = selectedItem!!
-                showDialog = false
-                navController.navigate(
-                    InterviewRegister(
-                        jobTitle = item.title,
-                        company = item.company,
-                        interviewerId = item.interviewerId,
-                        interviewerName = item.interviewerName
-                    )
-                )
-            },
-            onAi = {
-                // TODO: экран для AI интервью
-                showDialog = false
             }
-        )
-    }
-}
 
-@Composable
-private fun InterviewTypeDialog(
-    onDismiss: () -> Unit,
-    onRealPerson: () -> Unit,
-    onAi: () -> Unit,
-) {
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss
-    ) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = Color.White
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .padding(top = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            error != null -> {
                 Text(
-                    text = "Choose Interview Type:",
-                    fontFamily = Poppins,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primaryContainer
+                    text = error,
+                    color = Color.Red,
+                    style = TextStyle(
+                        fontFamily = Poppins,
+                        fontSize = 14.sp
+                    )
                 )
+            }
 
-                Spacer(Modifier.height(24.dp))
+            slots.isEmpty() -> {
+                Text(
+                    text = "No open interview slots available.",
+                    style = TextStyle(
+                        fontFamily = Poppins,
+                        fontSize = 14.sp
+                    ),
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
 
-                androidx.compose.material3.Button(
-                    onClick = onRealPerson,
-                    shape = RoundedCornerShape(18.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF0300A2)
+            else -> {
+                slots.forEach { slot ->
+                    InterviewSlotCard(
+                        slot = slot,
+                        onClick = { onSlotClick(slot) }
                     )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(35.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF3533B6))
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.interview3),
-                                contentDescription = null,
-                                modifier = Modifier.size(25.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "Real Person",
-                            style = TextStyle(
-                                fontFamily = Poppins,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 16.sp,
-                            ),
-                            color = Color.White
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                androidx.compose.material3.Button(
-                    onClick = onAi,
-                    shape = RoundedCornerShape(18.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF0A0932)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(35.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF3B3A5B))
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ai),
-                                contentDescription = null,
-                                modifier = Modifier.size(25.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "With AI",
-                            style = TextStyle(
-                                fontFamily = Poppins,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 16.sp,
-                            ),
-                            color = Color.White
-                        )
-                    }
+                    Spacer(Modifier.height(12.dp))
                 }
             }
         }
@@ -510,7 +463,10 @@ private fun InterviewTypeDialog(
 }
 
 @Composable
-private fun OngoingCard(item: OngoingInterviewItem, onClick: () -> Unit) {
+private fun InterviewSlotCard(
+    slot: InterviewSlot,
+    onClick: () -> Unit
+) {
     val gradient = Brush.linearGradient(
         colors = listOf(
             Color(0xFF060446),
@@ -532,57 +488,138 @@ private fun OngoingCard(item: OngoingInterviewItem, onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .background(gradient)
-                .padding(horizontal = 24.dp, vertical = 14.dp)
-                .height(80.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = slot.title,
+                            style = TextStyle(
+                                fontFamily = Poppins,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = Color.White
+                        )
 
-                Column {
-                    Text(
-                        text = item.title,
-                        style = TextStyle(
-                            fontFamily = Poppins,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = Color.White
-                    )
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = slot.company.ifBlank { "Company not specified" },
+                            style = TextStyle(
+                                fontFamily = Poppins,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal
+                            ),
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
 
-                    Text(
-                        text = item.location,
-                        style = TextStyle(
-                            fontFamily = Poppins,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Normal
-                        ),
-                        color = MaterialTheme.colorScheme.secondary
-                    )
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = slot.interviewer?.displayName ?: "Interviewer",
+                            style = TextStyle(
+                                fontFamily = Poppins,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Normal
+                            ),
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .background(Color.White, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Book",
+                            style = TextStyle(
+                                fontFamily = Poppins,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .background(Color.White, RoundedCornerShape(999.dp))
-                        .padding(horizontal = 18.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+                Spacer(Modifier.height(10.dp))
+
+                Text(
+                    text = formatSlotTime(slot.scheduledAt),
+                    style = TextStyle(
+                        fontFamily = Poppins,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = Color.White.copy(alpha = 0.85f)
+                )
+
+                if (slot.location.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+
                     Text(
-                        text = item.status,
+                        text = slot.location,
                         style = TextStyle(
                             fontFamily = Poppins,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontSize = 13.sp
                         ),
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        color = Color.White.copy(alpha = 0.7f)
                     )
                 }
             }
         }
+    }
+}
+
+private fun formatSessionTime(iso: String?): String {
+    if (iso.isNullOrBlank()) return "-"
+
+    return try {
+        val instant = Instant.parse(iso)
+        val zoned = instant.atZone(ZoneId.systemDefault())
+
+        val today = LocalDate.now()
+        val dateLabel = when (zoned.toLocalDate()) {
+            today -> "Today"
+            today.plusDays(1) -> "Tomorrow"
+            else -> zoned.toLocalDate().format(DateTimeFormatter.ofPattern("dd.MM"))
+        }
+
+        val timeLabel = zoned.toLocalTime()
+            .format(DateTimeFormatter.ofPattern("h:mm a"))
+
+        "$dateLabel, $timeLabel"
+    } catch (_: Exception) {
+        "-"
+    }
+}
+
+private fun formatSlotTime(iso: String?): String {
+    if (iso.isNullOrBlank()) return "Time not specified"
+
+    return try {
+        val instant = Instant.parse(iso)
+        val zoned = instant.atZone(ZoneId.systemDefault())
+
+        val date = zoned.toLocalDate()
+            .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+
+        val time = zoned.toLocalTime()
+            .format(DateTimeFormatter.ofPattern("h:mm a"))
+
+        "$date, $time"
+    } catch (_: Exception) {
+        "Time not specified"
     }
 }

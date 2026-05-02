@@ -1,6 +1,10 @@
 package com.example.mocklyapp.presentation.session
 
 import android.Manifest
+import android.content.Context
+import android.media.MediaRecorder
+import android.os.Build
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -17,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -32,6 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.mocklyapp.R
+import com.example.mocklyapp.domain.artifact.ArtifactRepository
+import com.example.mocklyapp.domain.report.ReportRepository
 import com.example.mocklyapp.domain.session.SessionRepository
 import com.example.mocklyapp.presentation.theme.Poppins
 import io.livekit.android.LiveKit
@@ -40,16 +47,23 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 fun MockInterviewScreen(
     sessionId: String,
     onBack: () -> Unit,
-    onEndInterview: (sessionId: String) -> Unit,
-    sessionRepository: SessionRepository
+    onEndInterview: (sessionId: String, noReportReason: String?) -> Unit,
+    sessionRepository: SessionRepository,
+    artifactRepository: ArtifactRepository,
+    reportRepository: ReportRepository
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    val audioRecorder = remember {
+        LocalInterviewAudioRecorder(context.applicationContext)
+    }
 
     var permissionsGranted by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf<String?>(null) }
@@ -57,11 +71,13 @@ fun MockInterviewScreen(
     var isConnecting by remember { mutableStateOf(false) }
     var isConnected by remember { mutableStateOf(false) }
     var isEnding by remember { mutableStateOf(false) }
+    var isRecording by remember { mutableStateOf(false) }
 
-    var elapsedSec by remember { mutableStateOf(0) }
+    var elapsedSec by remember { mutableIntStateOf(0) }
 
     var isMicEnabled by remember { mutableStateOf(true) }
     var isCameraEnabled by remember { mutableStateOf(true) }
+    var hasRemoteParticipantJoined by remember { mutableStateOf(false) }
 
     var room by remember { mutableStateOf<Room?>(null) }
 
@@ -93,12 +109,13 @@ fun MockInterviewScreen(
 
         isConnecting = true
         errorText = null
+        hasRemoteParticipantJoined = false
 
         try {
             sessionRepository.joinSession(sessionId)
 
             val liveKitToken = sessionRepository.getLiveKitToken(sessionId)
-            val liveKitUrl = fixLocalhostForEmulator(liveKitToken.url)
+            val liveKitUrl = "wss://rtc.iness.app"
 
             val liveKitRoom = LiveKit.create(appContext = context)
 
@@ -110,12 +127,22 @@ fun MockInterviewScreen(
             liveKitRoom.localParticipant.setMicrophoneEnabled(true)
             liveKitRoom.localParticipant.setCameraEnabled(true)
 
+            try {
+                audioRecorder.start()
+                isRecording = true
+                Log.d("MockInterviewScreen", "Local audio recording started")
+            } catch (e: Exception) {
+                Log.e("MockInterviewScreen", "Failed to start local audio recording", e)
+                errorText = "Interview connected, but audio recording failed: ${e.message}"
+            }
+
             room = liveKitRoom
             isConnected = true
             isMicEnabled = true
             isCameraEnabled = true
             elapsedSec = 0
         } catch (e: Exception) {
+            Log.e("MockInterviewScreen", "Failed to join interview", e)
             errorText = "Failed to join interview: ${e.message}"
             isConnected = false
         } finally {
@@ -132,9 +159,31 @@ fun MockInterviewScreen(
         }
     }
 
+    LaunchedEffect(isConnected, room) {
+        if (!isConnected) return@LaunchedEffect
+
+        while (isConnected) {
+            val currentRoom = room
+
+            if (currentRoom != null && currentRoom.remoteParticipants.isNotEmpty()) {
+                hasRemoteParticipantJoined = true
+                Log.d("MockInterviewScreen", "Remote participant detected")
+            }
+
+            delay(1000)
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             CoroutineScope(Dispatchers.Main).launch {
+                try {
+                    if (isRecording) {
+                        audioRecorder.stop()
+                    }
+                } catch (_: Exception) {
+                }
+
                 try {
                     room?.localParticipant?.setMicrophoneEnabled(false)
                 } catch (_: Exception) {
@@ -149,6 +198,8 @@ fun MockInterviewScreen(
                     room?.disconnect()
                 } catch (_: Exception) {
                 }
+
+                audioRecorder.release()
             }
         }
     }
@@ -202,12 +253,31 @@ fun MockInterviewScreen(
                             Spacer(Modifier.height(8.dp))
 
                             Text(
-                                text = "LiveKit room connected",
+                                text = if (isRecording) {
+                                    "LiveKit connected. Audio recording active."
+                                } else {
+                                    "LiveKit connected. Audio recording inactive."
+                                },
                                 style = TextStyle(
                                     fontFamily = Poppins,
                                     fontSize = 14.sp
                                 ),
                                 color = Color.White.copy(alpha = 0.7f)
+                            )
+
+                            Spacer(Modifier.height(6.dp))
+
+                            Text(
+                                text = if (hasRemoteParticipantJoined) {
+                                    "Second participant connected."
+                                } else {
+                                    "Waiting for second participant."
+                                },
+                                style = TextStyle(
+                                    fontFamily = Poppins,
+                                    fontSize = 13.sp
+                                ),
+                                color = Color.White.copy(alpha = 0.55f)
                             )
                         }
                     }
@@ -279,6 +349,23 @@ fun MockInterviewScreen(
 
                         scope.launch {
                             try {
+                                val durationSec = elapsedSec.coerceAtLeast(1)
+
+                                val audioFile = try {
+                                    if (isRecording) {
+                                        isRecording = false
+                                        audioRecorder.stop()
+                                    } else {
+                                        audioRecorder.currentFile()
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("MockInterviewScreen", "Failed to stop audio recording", e)
+                                    throw IllegalStateException(
+                                        "Failed to stop audio recording: ${e.message}",
+                                        e
+                                    )
+                                }
+
                                 try {
                                     room?.localParticipant?.setMicrophoneEnabled(false)
                                 } catch (_: Exception) {
@@ -297,8 +384,46 @@ fun MockInterviewScreen(
                                 }
 
                                 isConnected = false
-                                onEndInterview(sessionId)
+
+                                if (!hasRemoteParticipantJoined) {
+                                    audioFile?.delete()
+
+                                    Log.d(
+                                        "MockInterviewScreen",
+                                        "Report skipped: no remote participant joined"
+                                    )
+
+                                    onEndInterview(
+                                        sessionId,
+                                        "No results available because the second participant did not join the session."
+                                    )
+
+                                    return@launch
+                                }
+
+                                if (audioFile == null || !audioFile.exists() || audioFile.length() <= 0L) {
+                                    throw IllegalStateException("Audio file is empty. Report cannot be generated.")
+                                }
+
+                                artifactRepository.uploadSessionAudio(
+                                    sessionId = sessionId,
+                                    file = audioFile,
+                                    durationSec = durationSec
+                                )
+
+                                runCatching {
+                                    reportRepository.triggerSessionReport(sessionId)
+                                }.onFailure { e ->
+                                    Log.w(
+                                        "MockInterviewScreen",
+                                        "triggerSessionReport failed, result screen will continue polling",
+                                        e
+                                    )
+                                }
+
+                                onEndInterview(sessionId, null)
                             } catch (e: Exception) {
+                                Log.e("MockInterviewScreen", "Failed to finish interview", e)
                                 errorText = e.message ?: "Failed to end interview"
                                 isEnding = false
                             }
@@ -349,7 +474,6 @@ fun MockInterviewScreen(
                         background = Color(0xFF0A0932),
                         iconRes = R.drawable.more_horiz
                     ) {
-                        // TODO: options
                     }
                 }
 
@@ -379,7 +503,18 @@ fun MockInterviewScreen(
                         Spacer(Modifier.height(4.dp))
 
                         Text(
-                            text = "LiveKit session. Recording is handled by backend.",
+                            text = when {
+                                isEnding -> {
+                                    if (hasRemoteParticipantJoined) {
+                                        "Uploading audio and preparing report..."
+                                    } else {
+                                        "Closing session without report."
+                                    }
+                                }
+
+                                isRecording -> "Audio is being recorded locally for report generation."
+                                else -> "Audio recording is not active."
+                            },
                             style = TextStyle(
                                 fontFamily = Poppins,
                                 fontSize = 13.sp,
@@ -404,7 +539,11 @@ fun MockInterviewScreen(
                         Spacer(Modifier.height(8.dp))
 
                         Text(
-                            text = "Ending interview...",
+                            text = if (hasRemoteParticipantJoined) {
+                                "Uploading audio..."
+                            } else {
+                                "Closing session..."
+                            },
                             style = TextStyle(
                                 fontFamily = Poppins,
                                 fontSize = 16.sp
@@ -455,6 +594,87 @@ private fun CircleIconButton(
             tint = Color.White,
             modifier = Modifier.size(24.dp)
         )
+    }
+}
+
+private class LocalInterviewAudioRecorder(
+    private val context: Context
+) {
+    private var recorder: MediaRecorder? = null
+    private var outputFile: File? = null
+
+    fun start(): File {
+        release()
+
+        val file = File(
+            context.cacheDir,
+            "interview_audio_${System.currentTimeMillis()}.m4a"
+        )
+
+        val mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            MediaRecorder(context)
+        } else {
+            @Suppress("DEPRECATION")
+            MediaRecorder()
+        }
+
+        mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+        mediaRecorder.setAudioEncodingBitRate(128_000)
+        mediaRecorder.setAudioSamplingRate(44_100)
+        mediaRecorder.setOutputFile(file.absolutePath)
+        mediaRecorder.prepare()
+        mediaRecorder.start()
+
+        recorder = mediaRecorder
+        outputFile = file
+
+        return file
+    }
+
+    fun stop(): File? {
+        val mediaRecorder = recorder ?: return outputFile
+        val file = outputFile
+
+        try {
+            mediaRecorder.stop()
+        } catch (e: RuntimeException) {
+            file?.delete()
+            throw e
+        } finally {
+            runCatching {
+                mediaRecorder.reset()
+            }
+
+            runCatching {
+                mediaRecorder.release()
+            }
+
+            recorder = null
+        }
+
+        return file
+    }
+
+    fun currentFile(): File? {
+        return outputFile
+    }
+
+    fun release() {
+        val mediaRecorder = recorder
+
+        if (mediaRecorder != null) {
+            runCatching {
+                mediaRecorder.reset()
+            }
+
+            runCatching {
+                mediaRecorder.release()
+            }
+        }
+
+        recorder = null
     }
 }
 

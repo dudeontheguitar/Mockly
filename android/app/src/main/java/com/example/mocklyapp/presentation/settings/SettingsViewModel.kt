@@ -17,8 +17,12 @@ data class SettingsUiState(
     val name: String = "",
     val surname: String = "",
     val email: String = "",
-    val notificationsEnabled: Boolean = true,
-    val darkModeEnabled: Boolean = false,
+    val role: String = "",
+    val avatarUrl: String? = null,
+    val level: String? = null,
+    val skills: List<String> = emptyList(),
+    val bio: String? = null,
+    val location: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
     val isLoggedOut: Boolean = false
@@ -36,24 +40,42 @@ class SettingsViewModel(
         loadUser()
     }
 
+    fun refresh() {
+        loadUser()
+    }
+
     fun applyUser(user: User) {
         _state.value = _state.value.copy(
             name = user.name,
-            surname = user.surname ?: "",
-            email = user.email
+            surname = user.surname,
+            email = user.email,
+            role = user.role,
+            avatarUrl = user.avatarUrl,
+            level = user.level,
+            skills = user.skills,
+            bio = user.bio,
+            location = user.location
         )
     }
 
     private fun loadUser() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
+
             try {
                 val user = userRepo.getCurrentUser()
+
                 _state.value = _state.value.copy(
                     isLoading = false,
                     name = user.name,
-                    surname = user.surname ?: "",
+                    surname = user.surname,
                     email = user.email,
+                    role = user.role,
+                    avatarUrl = user.avatarUrl,
+                    level = user.level,
+                    skills = user.skills,
+                    bio = user.bio,
+                    location = user.location,
                     error = null
                 )
             } catch (e: Exception) {
@@ -65,20 +87,13 @@ class SettingsViewModel(
         }
     }
 
-    fun onNotificationsChange(value: Boolean) {
-        _state.value = _state.value.copy(notificationsEnabled = value)
-    }
-
-    fun onDarkModeChange(value: Boolean) {
-        _state.value = _state.value.copy(darkModeEnabled = value)
-    }
-
     fun logout() {
         viewModelScope.launch {
             try {
                 authRepo.logout()
             } catch (_: Exception) {
             }
+
             _state.value = _state.value.copy(isLoggedOut = true)
         }
     }
@@ -88,7 +103,7 @@ class SettingsViewModel(
             is HttpException -> when (e.code()) {
                 401 -> "Session expired. Please log in again."
                 in 500..599 -> "Server error. Please try again later."
-                else -> "Server error (HTTP ${e.code()})."
+                else -> "Server error HTTP ${e.code()}."
             }
 
             is UnknownHostException ->
@@ -101,7 +116,7 @@ class SettingsViewModel(
                 "Network error. Please check your internet connection."
 
             else ->
-                "Unexpected error: ${e.message ?: "Something went wrong."}"
+                e.message ?: "Something went wrong."
         }
     }
 }
