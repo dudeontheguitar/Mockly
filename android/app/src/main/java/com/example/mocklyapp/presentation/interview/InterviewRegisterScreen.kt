@@ -53,12 +53,12 @@ import com.example.mocklyapp.presentation.theme.Poppins
 fun InterviewRegisterScreen(
     viewModel: InterviewRegisterViewModel,
     onBack: () -> Unit,
-    onSuccessOK: () -> Unit,
+    onSuccessOK: (sessionId: String) -> Unit,
     jobTitle: String,
     company: String,
     interviewerName: String,
     interviewerId: String
-) {
+){
     val state by viewModel.state.collectAsState()
 
     val options = listOf(
@@ -397,7 +397,6 @@ fun InterviewRegisterScreen(
 
             Spacer(Modifier.weight(1f))
 
-            // сообщение об ошибке сервера
             state.error?.let { msg ->
                 Text(
                     text = msg,
@@ -461,7 +460,10 @@ fun InterviewRegisterScreen(
                 RegisterSuccessDialog(
                     onDismiss = { },
                     onOk = {
-                        onSuccessOK()
+                        val sessionId = state.createdSessionId
+                        if (!sessionId.isNullOrBlank()) {
+                            onSuccessOK(sessionId)
+                        }
                     }
                 )
             }

@@ -308,7 +308,7 @@ private fun AvailableInterview(navController: NavHostController) {
             location = "Remote",
             status = "Start",
             interviewerName = "Azamat S.",
-            interviewerId = "1d17719b-90de-4b20-9460-a4eb26b834e1"
+            interviewerId = "8ffc3fff-ce0a-4530-8bd6-ba0d208d6719"
         ),
         OngoingInterviewItem(
             title = "Product Manager",
@@ -316,7 +316,7 @@ private fun AvailableInterview(navController: NavHostController) {
             location = "Remote",
             status = "Start",
             interviewerName = "Diana O.",
-            interviewerId = "6818fe16-f988-4722-a529-85b4cfb1dfcf"
+            interviewerId = "fbae7d5d-9be5-43dc-850d-f14d71b1b5f4"
         ),
         OngoingInterviewItem(
             title = "QA Engineer",
@@ -324,7 +324,15 @@ private fun AvailableInterview(navController: NavHostController) {
             location = "Remote",
             status = "Waiting",
             interviewerName = "Batyrkhan M.",
-            interviewerId = "067b8ee7-1eb1-47c1-a75f-f93c01347465"
+            interviewerId = "dd50f045-6456-4572-a262-d630b8115dd6"
+        ),
+        OngoingInterviewItem(
+            title = "System Analyst",
+            company = "Freedom Bank",
+            location = "Remote",
+            status = "Start",
+            interviewerName = "Baglan N.",
+            interviewerId = "3e1737e8-4c34-4440-8adb-cd5efe079f82"
         )
     )
 

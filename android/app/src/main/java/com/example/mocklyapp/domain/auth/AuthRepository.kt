@@ -4,7 +4,10 @@ import com.example.mocklyapp.domain.auth.model.Tokens
 
 interface AuthRepository {
 
-    suspend fun login(email: String, password: String): Tokens
+    suspend fun login(
+        email: String,
+        password: String
+    ): Tokens
 
     suspend fun register(
         email: String,
@@ -18,5 +21,8 @@ interface AuthRepository {
 
     suspend fun logout()
 
-    suspend fun changePassword(currentPassword: String, newPassword: String)
+    suspend fun changePassword(
+        currentPassword: String,
+        newPassword: String
+    )
 }

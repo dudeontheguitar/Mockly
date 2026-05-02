@@ -3,41 +3,25 @@ package com.example.mocklyapp.presentation.interview
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mocklyapp.domain.report.ReportRepository
+import com.example.mocklyapp.domain.report.model.InterviewReport
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import retrofit2.HttpException
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 data class InterviewResultsState(
     val isLoading: Boolean = true,
+    val isWaitingForReport: Boolean = false,
     val report: InterviewReport? = null,
-    val error: String? = null
-)
-
-data class InterviewReport(
-    val overallScore: Double,
-    val overallLabel: String,
-    val overallMessage: String,
-    val strengths: List<String>,
-    val areasToImprove: List<String>,
-    val speechAnalysis: SpeechAnalysis?,
-    val scores: Scores?,
-    val summary: String,
-    val recommendations: String,
-    val transcript: String?
-)
-
-data class SpeechAnalysis(
-    val paceLabel: String,
-    val paceScore: Double?,
-    val fillerWordsCount: Int,
-    val fillerWordRate: Double
-)
-
-data class Scores(
-    val communication: Double,
-    val technical: Double,
-    val confidence: Double
+    val error: String? = null,
+    val message: String? = null
 )
 
 class InterviewResultsViewModel(
@@ -48,37 +32,134 @@ class InterviewResultsViewModel(
     private val _state = MutableStateFlow(InterviewResultsState())
     val state: StateFlow<InterviewResultsState> = _state.asStateFlow()
 
-    private var pollingJob: kotlinx.coroutines.Job? = null
+    private var pollingJob: Job? = null
 
-    fun loadResults() {
-        viewModelScope.launch {
-            _state.value = InterviewResultsState(isLoading = true)
-            try {
-                val report = reportRepository.getSessionReport(sessionId)
-                _state.value = InterviewResultsState(
+    fun startPolling() {
+        pollingJob?.cancel()
+
+        pollingJob = viewModelScope.launch {
+            _state.value = InterviewResultsState(
+                isLoading = true,
+                message = "Preparing report..."
+            )
+
+            var attempts = 0
+            val maxAttempts = 40
+
+            while (attempts < maxAttempts) {
+                attempts++
+
+                val shouldStop = loadResultsOnce()
+
+                if (shouldStop) {
+                    break
+                }
+
+                delay(3000)
+            }
+
+            val current = _state.value
+            if (
+                current.report == null &&
+                current.error == null &&
+                current.isWaitingForReport
+            ) {
+                _state.value = current.copy(
                     isLoading = false,
-                    report = report
-                )
-                pollingJob?.cancel() // останавливаем polling когда получили результат
-            } catch (e: Exception) {
-                _state.value = InterviewResultsState(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load interview results"
+                    isWaitingForReport = false,
+                    error = "Report is still not ready. Please try again later."
                 )
             }
         }
     }
 
-    fun startPolling() {
-        pollingJob?.cancel()
-        pollingJob = viewModelScope.launch {
-            while (true) {
-                loadResults()
-                if (_state.value.report != null || _state.value.error != null) {
-                    break // выходим если получили результат или ошибку
+    fun retry() {
+        startPolling()
+    }
+
+    private suspend fun loadResultsOnce(): Boolean {
+        return try {
+            val report = reportRepository.getSessionReport(sessionId)
+            val status = report.status.uppercase()
+
+            _state.value = InterviewResultsState(
+                isLoading = false,
+                isWaitingForReport = status == "PENDING" || status == "PROCESSING",
+                report = report,
+                error = null,
+                message = when (status) {
+                    "READY" -> null
+                    "FAILED" -> report.errorMessage ?: "Report generation failed."
+                    "PROCESSING" -> "Report is being generated..."
+                    "PENDING" -> "Report is waiting for processing..."
+                    else -> "Report status: $status"
                 }
-                kotlinx.coroutines.delay(3000) // проверяем каждые 3 секунды
+            )
+
+            status == "READY" || status == "FAILED"
+        } catch (e: HttpException) {
+            if (e.code() == 404) {
+                _state.value = InterviewResultsState(
+                    isLoading = false,
+                    isWaitingForReport = true,
+                    report = null,
+                    error = null,
+                    message = getBackendMessage(e)
+                        ?: "Waiting for interview recording and report generation..."
+                )
+
+                false
+            } else {
+                _state.value = InterviewResultsState(
+                    isLoading = false,
+                    isWaitingForReport = false,
+                    report = null,
+                    error = mapError(e),
+                    message = null
+                )
+
+                true
             }
+        } catch (e: Exception) {
+            _state.value = InterviewResultsState(
+                isLoading = false,
+                isWaitingForReport = false,
+                report = null,
+                error = mapError(e),
+                message = null
+            )
+
+            true
+        }
+    }
+
+    private fun getBackendMessage(e: HttpException): String? {
+        return try {
+            val body = e.response()?.errorBody()?.string()
+            JSONObject(body ?: "").optString("message").takeIf { it.isNotBlank() }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun mapError(e: Throwable): String {
+        return when (e) {
+            is HttpException -> {
+                val backendMessage = getBackendMessage(e)
+                backendMessage ?: "Server error HTTP ${e.code()}."
+            }
+
+            is UnknownHostException ->
+                "Cannot reach the server. Please check your connection."
+
+            is SocketTimeoutException ->
+                "The server took too long to respond. Try again."
+
+            is IOException ->
+                "Network error. Please check your connection."
+
+            else ->
+                e.message ?: "Failed to load interview results."
         }
     }
 

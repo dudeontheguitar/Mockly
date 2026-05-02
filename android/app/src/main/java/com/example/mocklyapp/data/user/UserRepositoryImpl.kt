@@ -11,12 +11,11 @@ class UserRepositoryImpl(
 ) : UserRepository {
 
     override suspend fun getCurrentUser(): User {
-        val dto = api.getMe()
-        return dto.toDomain()
+        return api.getMe().toDomain()
     }
 
     override suspend fun getUserById(id: String): User {
-        TODO("Not yet implemented")
+        return api.getUserById(id).toDomain()
     }
 
     override suspend fun updateCurrentUser(
@@ -25,25 +24,40 @@ class UserRepositoryImpl(
         avatarUrl: String?,
         level: String?
     ): User {
+        val displayName = buildDisplayName(name, surname)
+
         val dto = api.updateMe(
             UpdateUserRequest(
-                name = name,
-                surname = surname,
+                displayName = displayName,
                 avatarUrl = avatarUrl,
                 level = level
             )
         )
+
         return dto.toDomain()
+    }
+
+    private fun buildDisplayName(
+        name: String?,
+        surname: String?
+    ): String? {
+        val result = listOfNotNull(
+            name?.trim()?.takeIf { it.isNotBlank() },
+            surname?.trim()?.takeIf { it.isNotBlank() }
+        ).joinToString(" ")
+
+        return result.ifBlank { null }
     }
 }
 
-private fun UserDto.toDomain() = User(
-    id = id,
-    email = email,
-    name = name,
-    surname = surname,
-    role = role,
-    avatarUrl = avatarUrl,
-    level = level,
-    skills = skills ?: emptyList()
-)
+private fun UserDto.toDomain(): User {
+    return User(
+        id = id,
+        email = email,
+        displayName = displayName,
+        role = role,
+        avatarUrl = avatarUrl,
+        level = level,
+        skills = skills ?: emptyList()
+    )
+}

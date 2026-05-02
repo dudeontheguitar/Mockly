@@ -76,12 +76,11 @@ fun SettingsScreen(
             item { Spacer(modifier = Modifier.height(12.dp)) }
             item {
                 AccountSection(
-                    onEditProfileClick = onEditProfileClick,
-                    onChangePasswordClick = onChangePasswordClick
+                    onEditProfileClick = onEditProfileClick
+                    // Change Password скрыт: endpoint отсутствует на backend
                 )
             }
             item { Spacer(modifier = Modifier.height(24.dp)) }
-
 
             item { SectionTitle("App Settings") }
             item { Spacer(modifier = Modifier.height(12.dp)) }
@@ -95,7 +94,6 @@ fun SettingsScreen(
             }
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
-
             item { SectionTitle("Support") }
             item { Spacer(modifier = Modifier.height(12.dp)) }
             item {
@@ -108,9 +106,7 @@ fun SettingsScreen(
             item { Spacer(modifier = Modifier.height(32.dp)) }
 
             item {
-                LogoutButton(
-                    onClick = { viewModel.logout() }
-                )
+                LogoutButton(onClick = { viewModel.logout() })
             }
         }
     }
@@ -144,12 +140,9 @@ private fun UserProfileCard(
     email: String,
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -159,9 +152,7 @@ private fun UserProfileCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .size(56.dp)
@@ -204,15 +195,12 @@ private fun UserProfileCard(
 
 @Composable
 private fun AccountSection(
-    onEditProfileClick: () -> Unit,
-    onChangePasswordClick: () -> Unit
+    onEditProfileClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column {
@@ -222,16 +210,7 @@ private fun AccountSection(
                 hasArrow = true,
                 onClick = onEditProfileClick
             )
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = Color(0xFFE5E5E5)
-            )
-            SettingsItemInCard(
-                title = "Change Password",
-                iconRes = R.drawable.password,
-                hasArrow = true,
-                onClick = onChangePasswordClick
-            )
+            // Change Password скрыт — endpoint /auth/change-password отсутствует на backend
         }
     }
 }
@@ -246,9 +225,7 @@ private fun AppSettingsSection(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column {
@@ -258,35 +235,26 @@ private fun AppSettingsSection(
                 checked = notificationsEnabled,
                 onCheckedChange = onNotificationsChange
             )
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = Color(0xFFE5E5E5)
-            )
+            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E5E5))
             SettingsItemWithSwitchInCard(
                 title = "Dark Mode",
                 iconRes = R.drawable.dark_mode,
                 checked = darkModeEnabled,
                 onCheckedChange = onDarkModeChange
             )
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = Color(0xFFE5E5E5)
-            )
+            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E5E5))
             SettingsItemInCard(
                 title = "Language",
                 iconRes = R.drawable.language,
                 hasArrow = true,
-                onClick = { /* TODO: open language screen */ }
+                onClick = {}
             )
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = Color(0xFFE5E5E5)
-            )
+            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E5E5))
             SettingsItemInCard(
                 title = "Privacy & Security",
                 iconRes = R.drawable.privacy,
                 hasArrow = true,
-                onClick = { /* TODO */ }
+                onClick = {}
             )
         }
     }
@@ -301,9 +269,7 @@ private fun SupportSection(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column {
@@ -313,20 +279,14 @@ private fun SupportSection(
                 hasArrow = true,
                 onClick = onHelpCenterClick
             )
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = Color(0xFFE5E5E5)
-            )
+            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E5E5))
             SettingsItemInCard(
                 title = "Contact Support",
                 iconRes = R.drawable.support,
                 hasArrow = true,
                 onClick = onContactSupportClick
             )
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = Color(0xFFE5E5E5)
-            )
+            HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFE5E5E5))
             SettingsItemInCard(
                 title = "Terms & Policies",
                 iconRes = R.drawable.term,
@@ -368,9 +328,7 @@ private fun SettingsItemInCard(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = title,
@@ -413,9 +371,7 @@ private fun SettingsItemWithSwitchInCard(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = title,
@@ -448,17 +404,13 @@ private fun SettingsItemWithSwitchInCard(
 }
 
 @Composable
-private fun LogoutButton(
-    onClick: () -> Unit
-) {
+private fun LogoutButton(onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(

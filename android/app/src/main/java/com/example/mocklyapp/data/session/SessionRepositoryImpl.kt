@@ -3,7 +3,10 @@ package com.example.mocklyapp.data.session
 import com.example.mocklyapp.data.session.remote.CreateSessionRequestDto
 import com.example.mocklyapp.data.session.remote.SessionApi
 import com.example.mocklyapp.domain.session.SessionRepository
-import com.example.mocklyapp.domain.session.model.*
+import com.example.mocklyapp.domain.session.model.LiveKitToken
+import com.example.mocklyapp.domain.session.model.Session
+import com.example.mocklyapp.domain.session.model.SessionStatus
+import retrofit2.HttpException
 
 class SessionRepositoryImpl(
     private val api: SessionApi
@@ -19,12 +22,20 @@ class SessionRepositoryImpl(
             size = size,
             status = status?.name
         )
+
         return resp.sessions.map { it.toDomain() }
     }
 
     override suspend fun getActiveSession(): Session? {
-        val dto = api.getMyActiveSession() ?: return null
-        return dto.toDomain()
+        return try {
+            api.getMyActiveSession().toDomain()
+        } catch (e: HttpException) {
+            if (e.code() == 404) {
+                null
+            } else {
+                throw e
+            }
+        }
     }
 
     override suspend fun createSession(
@@ -37,14 +48,17 @@ class SessionRepositoryImpl(
                 scheduledAt = scheduledAt
             )
         )
+
         return dto.toDomain()
     }
 
-    override suspend fun getSessionById(id: String): Session =
-        api.getSessionById(id).toDomain()
+    override suspend fun getSessionById(id: String): Session {
+        return api.getSessionById(id).toDomain()
+    }
 
-    override suspend fun joinSession(id: String): Session =
-        api.joinSession(id).toDomain()
+    override suspend fun joinSession(id: String): Session {
+        return api.joinSession(id).toDomain()
+    }
 
     override suspend fun leaveSession(id: String) {
         api.leaveSession(id)
@@ -56,6 +70,7 @@ class SessionRepositoryImpl(
 
     override suspend fun getLiveKitToken(id: String): LiveKitToken {
         val dto = api.getSessionToken(id)
+
         return LiveKitToken(
             token = dto.token,
             roomId = dto.roomId,

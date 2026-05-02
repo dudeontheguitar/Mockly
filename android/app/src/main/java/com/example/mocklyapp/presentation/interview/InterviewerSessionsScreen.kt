@@ -15,6 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,8 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -43,7 +42,8 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun InterviewerSessionsScreen(
-    viewModel: InterviewViewModel
+    viewModel: InterviewViewModel,
+    onSessionClick: (String) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -56,30 +56,37 @@ fun InterviewerSessionsScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             item {
-                val name = state.name.ifBlank { "User" }
-                InterviewerHeader(userName = name)
-            }
-
-            item { Spacer(modifier = Modifier.height(24.dp)) }
-
-            item {
-                InterviewerMyInterviews(
-                    upcomingSessions = state.upcoming,
-                    pastSessions = state.past
+                InterviewerHeader(
+                    userName = state.name.ifBlank { "Interviewer" }
                 )
             }
 
-            item { Spacer(modifier = Modifier.height(24.dp)) }
-
             item {
-                CreateInterviewSection()
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            if (state.isLoading) {
+                item {
+                    Spacer(Modifier.height(48.dp))
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            } else {
+                item {
+                    InterviewerMyInterviews(
+                        upcomingSessions = state.upcoming,
+                        pastSessions = state.past,
+                        onSessionClick = onSessionClick
+                    )
+                }
             }
 
             if (state.error != null) {
                 item {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = state.error!!,
+                        text = state.error ?: "",
                         color = Color.Red,
                         style = TextStyle(
                             fontFamily = Poppins,
@@ -93,8 +100,6 @@ fun InterviewerSessionsScreen(
     }
 }
 
-/* ------------------------------ HEADER ------------------------------------ */
-
 @Composable
 private fun InterviewerHeader(userName: String) {
     Row(
@@ -104,7 +109,6 @@ private fun InterviewerHeader(userName: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -135,6 +139,7 @@ private fun InterviewerHeader(userName: String) {
                     ),
                     color = MaterialTheme.colorScheme.primaryContainer
                 )
+
                 Text(
                     text = userName,
                     style = TextStyle(
@@ -157,7 +162,7 @@ private fun InterviewerHeader(userName: String) {
         ) {
             Icon(
                 painter = painterResource(R.drawable.outline_notifications_24),
-                contentDescription = "",
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier.size(20.dp)
             )
@@ -165,12 +170,11 @@ private fun InterviewerHeader(userName: String) {
     }
 }
 
-/* --------------------------- MY INTERVIEWS -------------------------------- */
-
 @Composable
 private fun InterviewerMyInterviews(
     upcomingSessions: List<Session>,
-    pastSessions: List<Session>
+    pastSessions: List<Session>,
+    onSessionClick: (String) -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Upcoming", "Past")
@@ -196,7 +200,7 @@ private fun InterviewerMyInterviews(
             contentColor = MaterialTheme.colorScheme.primaryContainer,
             indicator = {
                 TabRowDefaults.SecondaryIndicator(
-                    Modifier
+                    modifier = Modifier
                         .tabIndicatorOffset(selectedTab)
                         .padding(horizontal = 48.dp)
                         .height(3.dp),
@@ -204,7 +208,7 @@ private fun InterviewerMyInterviews(
                 )
             },
             divider = {}
-        ) {
+        ){
             tabs.forEachIndexed { index, title ->
                 Tab(
                     selected = selectedTab == index,
@@ -215,22 +219,33 @@ private fun InterviewerMyInterviews(
                         style = TextStyle(
                             fontFamily = Poppins,
                             fontSize = 16.sp,
-                            fontWeight = if (selectedTab == index) FontWeight.SemiBold else FontWeight.Normal
+                            fontWeight = if (selectedTab == index) {
+                                FontWeight.SemiBold
+                            } else {
+                                FontWeight.Normal
+                            }
                         ),
-                        color = if (selectedTab == index)
+                        color = if (selectedTab == index) {
                             MaterialTheme.colorScheme.primaryContainer
-                        else
+                        } else {
                             MaterialTheme.colorScheme.secondary
+                        }
                     )
+
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }
 
-        val currentList = if (selectedTab == 0) upcomingSessions else pastSessions
+        Spacer(Modifier.height(12.dp))
+
+        val currentList = if (selectedTab == 0) {
+            upcomingSessions
+        } else {
+            pastSessions
+        }
 
         if (currentList.isEmpty()) {
-            Spacer(Modifier.height(12.dp))
             Text(
                 text = "No interviews yet",
                 style = TextStyle(
@@ -242,7 +257,11 @@ private fun InterviewerMyInterviews(
             )
         } else {
             currentList.forEach { session ->
-                InterviewerSessionCard(session)
+                InterviewerSessionCard(
+                    session = session,
+                    onClick = { onSessionClick(session.id) }
+                )
+
                 Spacer(Modifier.height(12.dp))
             }
         }
@@ -250,39 +269,22 @@ private fun InterviewerMyInterviews(
 }
 
 @Composable
-private fun InterviewerSessionCard(session: Session) {
-
+private fun InterviewerSessionCard(
+    session: Session,
+    onClick: () -> Unit
+) {
     val candidateName = session.participants
         .firstOrNull { it.roleInSession == SessionRole.CANDIDATE }
         ?.userDisplayName
         ?: "Candidate"
 
-    val candidateLevel = "Junior" // пока мок
-
-    val formattedTime = session.startAt?.let { iso ->
-        try {
-            val instant = Instant.parse(iso)
-            val zoned = instant.atZone(ZoneId.systemDefault())
-
-            val today = LocalDate.now()
-            val dateLabel = when (zoned.toLocalDate()) {
-                today -> "Today"
-                today.plusDays(1) -> "Tomorrow"
-                else -> zoned.toLocalDate().toString()
-            }
-
-            val timeLabel = zoned.toLocalTime()
-                .format(DateTimeFormatter.ofPattern("h:mm a"))
-
-            "$dateLabel, $timeLabel"
-        } catch (_: Exception) {
-            "-"
-        }
-    } ?: "-"
+    val formattedTime = formatSessionTime(session.startAt)
 
     Card(
         shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         colors = CardDefaults.cardColors(
             containerColor = Color.White
         )
@@ -294,7 +296,6 @@ private fun InterviewerSessionCard(session: Session) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-
             Column {
                 Text(
                     text = candidateName,
@@ -309,7 +310,7 @@ private fun InterviewerSessionCard(session: Session) {
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = candidateLevel,
+                    text = session.status.name,
                     style = TextStyle(
                         fontFamily = Poppins,
                         fontSize = 16.sp,
@@ -332,122 +333,25 @@ private fun InterviewerSessionCard(session: Session) {
     }
 }
 
-/* --------------------------- CREATE INTERVIEW ----------------------------- */
+private fun formatSessionTime(iso: String?): String {
+    if (iso.isNullOrBlank()) return "-"
 
-data class CreateTemplateItem(
-    val title: String,
-    val location: String
-)
+    return try {
+        val instant = Instant.parse(iso)
+        val zoned = instant.atZone(ZoneId.systemDefault())
 
-@Composable
-private fun CreateInterviewSection() {
-    val items = listOf(
-        CreateTemplateItem("Frontend Developer", "Remote"),
-        CreateTemplateItem("Product Manager", "Remote"),
-        CreateTemplateItem("ML Engineer", "Remote")
-    )
-
-    Column(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = "Create Interview",
-            style = TextStyle(
-                fontFamily = Poppins,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            ),
-            color = MaterialTheme.colorScheme.primaryContainer
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        items.forEach { item ->
-            CreateInterviewCard(item = item, onClick = {
-                // TODO: потом тут откроешь экран создания / выбора кандидата
-            })
-            Spacer(Modifier.height(12.dp))
+        val today = LocalDate.now()
+        val dateLabel = when (zoned.toLocalDate()) {
+            today -> "Today"
+            today.plusDays(1) -> "Tomorrow"
+            else -> zoned.toLocalDate().toString()
         }
-    }
-}
 
-@Composable
-private fun CreateInterviewCard(
-    item: CreateTemplateItem,
-    onClick: () -> Unit
-) {
-    val gradient = Brush.linearGradient(
-        colors = listOf(
-            Color(0xFF060446),
-            Color(0xFF0A0932)
-        ),
-        start = Offset.Zero,
-        end = Offset.Infinite
-    )
+        val timeLabel = zoned.toLocalTime()
+            .format(DateTimeFormatter.ofPattern("h:mm a"))
 
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        )
-    ) {
-        Box(
-            modifier = Modifier
-                .background(gradient)
-                .padding(horizontal = 24.dp, vertical = 18.dp)
-                .height(80.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
-                Column {
-                    Text(
-                        text = item.title,
-                        style = TextStyle(
-                            fontFamily = Poppins,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = Color.White
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = item.location,
-                        style = TextStyle(
-                            fontFamily = Poppins,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Normal
-                        ),
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .background(Color.White, RoundedCornerShape(999.dp))
-                        .padding(horizontal = 18.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Create",
-                        style = TextStyle(
-                            fontFamily = Poppins,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    )
-                }
-            }
-        }
+        "$dateLabel, $timeLabel"
+    } catch (_: Exception) {
+        "-"
     }
 }

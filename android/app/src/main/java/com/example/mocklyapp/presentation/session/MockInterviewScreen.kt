@@ -1,17 +1,26 @@
 package com.example.mocklyapp.presentation.session
 
 import android.Manifest
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,75 +32,124 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.mocklyapp.R
+import com.example.mocklyapp.domain.session.SessionRepository
 import com.example.mocklyapp.presentation.theme.Poppins
+import io.livekit.android.LiveKit
+import io.livekit.android.room.Room
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.io.File
 
-@RequiresApi(Build.VERSION_CODES.S)
 @Composable
 fun MockInterviewScreen(
     sessionId: String,
     onBack: () -> Unit,
     onEndInterview: (sessionId: String) -> Unit,
-    artifactRepository: com.example.mocklyapp.domain.artifact.ArtifactRepository
-)
-{
+    sessionRepository: SessionRepository
+) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var isUploading by remember { mutableStateOf(false) }
-
-    val context = LocalContext.current
-
-    // наш рекордер
-    val recorder = remember { InterviewAudioRecorder(context) }
-
-    var hasMicPermission by remember { mutableStateOf(false) }
-    var isRecording by remember { mutableStateOf(false) }
-    var elapsedSec by remember { mutableStateOf(0) }
-    var lastFile by remember { mutableStateOf<File?>(null) }
+    var permissionsGranted by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf<String?>(null) }
 
-    // permission launcher
-    val permissionLauncher =
-        rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission()
-        ) { granted ->
-            hasMicPermission = granted
-            if (granted) {
-                // как только дали доступ — стартуем запись
-                try {
-                    lastFile = recorder.start(sessionId)
-                    isRecording = true
-                    elapsedSec = 0
-                } catch (e: Exception) {
-                    errorText = e.message ?: "Failed to start recording"
-                    isRecording = false
-                }
-            } else {
-                errorText = "Microphone permission is required for mock interview."
-            }
-        }
+    var isConnecting by remember { mutableStateOf(false) }
+    var isConnected by remember { mutableStateOf(false) }
+    var isEnding by remember { mutableStateOf(false) }
 
-    // запрашиваем доступ к микрофону при первом входе
+    var elapsedSec by remember { mutableStateOf(0) }
+
+    var isMicEnabled by remember { mutableStateOf(true) }
+    var isCameraEnabled by remember { mutableStateOf(true) }
+
+    var room by remember { mutableStateOf<Room?>(null) }
+
+    val permissionsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        val cameraOk = perms[Manifest.permission.CAMERA] == true
+        val audioOk = perms[Manifest.permission.RECORD_AUDIO] == true
+
+        permissionsGranted = cameraOk && audioOk
+
+        if (!permissionsGranted) {
+            errorText = "Camera and microphone permissions are required for the interview."
+        }
+    }
+
     LaunchedEffect(Unit) {
-        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        permissionsLauncher.launch(
+            arrayOf(
+                Manifest.permission.CAMERA,
+                Manifest.permission.RECORD_AUDIO
+            )
+        )
     }
 
-    // таймер — пока идёт запись
-    LaunchedEffect(isRecording) {
-        if (!isRecording) return@LaunchedEffect
-        while (isRecording) {
-            delay(1000)
-            elapsedSec += 1
+    LaunchedEffect(permissionsGranted) {
+        if (!permissionsGranted) return@LaunchedEffect
+        if (room != null) return@LaunchedEffect
+
+        isConnecting = true
+        errorText = null
+
+        try {
+            sessionRepository.joinSession(sessionId)
+
+            val liveKitToken = sessionRepository.getLiveKitToken(sessionId)
+            val liveKitUrl = fixLocalhostForEmulator(liveKitToken.url)
+
+            val liveKitRoom = LiveKit.create(appContext = context)
+
+            liveKitRoom.connect(
+                url = liveKitUrl,
+                token = liveKitToken.token
+            )
+
+            liveKitRoom.localParticipant.setMicrophoneEnabled(true)
+            liveKitRoom.localParticipant.setCameraEnabled(true)
+
+            room = liveKitRoom
+            isConnected = true
+            isMicEnabled = true
+            isCameraEnabled = true
+            elapsedSec = 0
+        } catch (e: Exception) {
+            errorText = "Failed to join interview: ${e.message}"
+            isConnected = false
+        } finally {
+            isConnecting = false
         }
     }
 
-    // освобождаем ресурсы при выходе с экрана
+    LaunchedEffect(isConnected) {
+        if (!isConnected) return@LaunchedEffect
+
+        while (isConnected) {
+            delay(1000)
+            elapsedSec++
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
-            recorder.stop()
-            recorder.release()
+            CoroutineScope(Dispatchers.Main).launch {
+                try {
+                    room?.localParticipant?.setMicrophoneEnabled(false)
+                } catch (_: Exception) {
+                }
+
+                try {
+                    room?.localParticipant?.setCameraEnabled(false)
+                } catch (_: Exception) {
+                }
+
+                try {
+                    room?.disconnect()
+                } catch (_: Exception) {
+                }
+            }
         }
     }
 
@@ -102,8 +160,6 @@ fun MockInterviewScreen(
                 .background(MaterialTheme.colorScheme.onBackground)
                 .padding(16.dp)
         ) {
-
-            // Основное "видео" кандидата (заглушка)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -113,17 +169,61 @@ fun MockInterviewScreen(
                     .background(Color(0xFF111111)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = if (isRecording) "Recording..." else "Waiting...",
-                    style = TextStyle(
-                        fontFamily = Poppins,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    color = Color.White
-                )
+                when {
+                    isConnecting -> {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = Color.White)
 
-                // маленькое окошко интервьюера
+                            Spacer(Modifier.height(12.dp))
+
+                            Text(
+                                text = "Connecting to interview...",
+                                style = TextStyle(
+                                    fontFamily = Poppins,
+                                    fontSize = 16.sp
+                                ),
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    isConnected -> {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Interview in progress",
+                                style = TextStyle(
+                                    fontFamily = Poppins,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = Color.White
+                            )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            Text(
+                                text = "LiveKit room connected",
+                                style = TextStyle(
+                                    fontFamily = Poppins,
+                                    fontSize = 14.sp
+                                ),
+                                color = Color.White.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+
+                    else -> {
+                        Text(
+                            text = "Waiting for permissions...",
+                            style = TextStyle(
+                                fontFamily = Poppins,
+                                fontSize = 16.sp
+                            ),
+                            color = Color.White
+                        )
+                    }
+                }
+
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -134,7 +234,7 @@ fun MockInterviewScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Interviewer",
+                        text = "You",
                         style = TextStyle(
                             fontFamily = Poppins,
                             fontSize = 14.sp,
@@ -145,14 +245,11 @@ fun MockInterviewScreen(
                 }
             }
 
-            // нижняя панель с кнопками
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
             ) {
-
-                // время записи
                 Text(
                     text = formatTime(elapsedSec),
                     style = TextStyle(
@@ -171,101 +268,106 @@ fun MockInterviewScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // End call (красная)
-                    // End call (красная)
                     CircleIconButton(
                         background = Color(0xFFE54B4B),
                         iconRes = R.drawable.call_end
                     ) {
-                        // стоп записи
-                        isRecording = false
-                        val file = recorder.stop()
-                        lastFile = file
+                        if (isEnding) return@CircleIconButton
 
-                        if (file == null) {
-                            // ничего не записали — просто выходим
-                            onEndInterview(sessionId)
-                        } else {
-                            isUploading = true
-                            scope.launch {
+                        isEnding = true
+                        errorText = null
+
+                        scope.launch {
+                            try {
                                 try {
-                                    artifactRepository.uploadSessionAudio(
-                                        sessionId = sessionId,
-                                        file = file,
-                                        durationSec = elapsedSec
-                                    )
-                                    onEndInterview(sessionId)
-                                } catch (e: Exception) {
-                                    errorText = e.message ?: "Failed to upload interview"
-                                } finally {
-                                    isUploading = false
+                                    room?.localParticipant?.setMicrophoneEnabled(false)
+                                } catch (_: Exception) {
                                 }
+
+                                try {
+                                    room?.localParticipant?.setCameraEnabled(false)
+                                } catch (_: Exception) {
+                                }
+
+                                sessionRepository.endSession(sessionId)
+
+                                try {
+                                    room?.disconnect()
+                                } catch (_: Exception) {
+                                }
+
+                                isConnected = false
+                                onEndInterview(sessionId)
+                            } catch (e: Exception) {
+                                errorText = e.message ?: "Failed to end interview"
+                                isEnding = false
                             }
                         }
                     }
 
-
                     Spacer(Modifier.width(18.dp))
 
-                    // Camera toggle (пока просто UI)
                     CircleIconButton(
                         background = Color(0xFF0A0932),
                         iconRes = R.drawable.videocam
                     ) {
-                        // TODO: камера позже, сейчас только дизайн
-                    }
+                        val currentRoom = room ?: return@CircleIconButton
 
-                    Spacer(Modifier.width(18.dp))
-
-                    // Mic toggle (останавливает/возобновляет запись)
-                    CircleIconButton(
-                        background = Color(0xFF0A0932),
-                        iconRes = if (isRecording) R.drawable.mic_off else R.drawable.mic
-                    ) {
-                        if (!hasMicPermission) {
-                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        } else {
-                            if (isRecording) {
-                                isRecording = false
-                                recorder.stop()
-                            } else {
-                                try {
-                                    lastFile = recorder.start(sessionId)
-                                    elapsedSec = 0
-                                    isRecording = true
-                                } catch (e: Exception) {
-                                    errorText = "${e::class.simpleName}: ${e.message ?: "Failed to upload interview"}"
-                                }
-
+                        scope.launch {
+                            try {
+                                val newValue = !isCameraEnabled
+                                currentRoom.localParticipant.setCameraEnabled(newValue)
+                                isCameraEnabled = newValue
+                            } catch (e: Exception) {
+                                errorText = e.message ?: "Failed to toggle camera"
                             }
                         }
                     }
 
                     Spacer(Modifier.width(18.dp))
 
-                    // More button (ничего не делает, только UI)
+                    CircleIconButton(
+                        background = Color(0xFF0A0932),
+                        iconRes = if (isMicEnabled) R.drawable.mic else R.drawable.mic_off
+                    ) {
+                        val currentRoom = room ?: return@CircleIconButton
+
+                        scope.launch {
+                            try {
+                                val newValue = !isMicEnabled
+                                currentRoom.localParticipant.setMicrophoneEnabled(newValue)
+                                isMicEnabled = newValue
+                            } catch (e: Exception) {
+                                errorText = e.message ?: "Failed to toggle microphone"
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.width(18.dp))
+
                     CircleIconButton(
                         background = Color(0xFF0A0932),
                         iconRes = R.drawable.more_horiz
                     ) {
-                        // TODO: опции позже
+                        // TODO: options
                     }
                 }
 
                 Spacer(Modifier.height(18.dp))
 
-                // снизу "плашка" с текстом интервьюера
                 Surface(
                     shape = RoundedCornerShape(24.dp),
                     color = Color.White,
                     shadowElevation = 0.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Hello, let's start the mock interview...",
+                            text = when {
+                                isEnding -> "Ending interview..."
+                                isConnected -> "Interview in progress"
+                                else -> "Connecting..."
+                            },
                             style = TextStyle(
                                 fontFamily = Poppins,
                                 fontSize = 16.sp,
@@ -273,9 +375,11 @@ fun MockInterviewScreen(
                             ),
                             color = MaterialTheme.colorScheme.primaryContainer
                         )
+
                         Spacer(Modifier.height(4.dp))
+
                         Text(
-                            text = "Interviewer",
+                            text = "LiveKit session. Recording is handled by backend.",
                             style = TextStyle(
                                 fontFamily = Poppins,
                                 fontSize = 13.sp,
@@ -287,7 +391,7 @@ fun MockInterviewScreen(
                 }
             }
 
-            if (isUploading) {
+            if (isEnding) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -296,13 +400,14 @@ fun MockInterviewScreen(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = Color.White)
+
                         Spacer(Modifier.height(8.dp))
+
                         Text(
-                            text = "Uploading interview...",
+                            text = "Ending interview...",
                             style = TextStyle(
                                 fontFamily = Poppins,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
+                                fontSize = 16.sp
                             ),
                             color = Color.White
                         )
@@ -310,17 +415,22 @@ fun MockInterviewScreen(
                 }
             }
 
-            // ошибка (если что-то пошло не так)
-            if (errorText != null) {
-                Text(
-                    text = errorText!!,
-                    color = Color.Red,
+            errorText?.let { err ->
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(top = 8.dp)
-                )
+                ) {
+                    Text(
+                        text = err,
+                        color = Color.Red,
+                        fontFamily = Poppins,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
             }
-
         }
     }
 }
@@ -336,7 +446,6 @@ private fun CircleIconButton(
             .size(56.dp)
             .clip(CircleShape)
             .background(background)
-            .padding(14.dp)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {

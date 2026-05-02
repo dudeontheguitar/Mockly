@@ -17,7 +17,7 @@ data class InterviewUiState(
     val error: String? = null,
     val upcoming: List<Session> = emptyList(),
     val past: List<Session> = emptyList(),
-    val name: String = "",
+    val name: String = ""
 )
 
 class InterviewViewModel(
@@ -37,45 +37,49 @@ class InterviewViewModel(
         viewModelScope.launch {
             try {
                 val user = userRepo.getCurrentUser()
-                _state.update { it.copy(name = user.name) }
+                _state.update {
+                    it.copy(name = user.name.ifBlank { user.displayName })
+                }
             } catch (_: Exception) {
+                // Не ломаем экран, если имя не загрузилось.
             }
         }
     }
 
     fun loadSessions() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = null) }
+            _state.update {
+                it.copy(
+                    isLoading = true,
+                    error = null
+                )
+            }
+
             try {
-                val all = sessionRepo.getSessions()
-                val now = Instant.now()
+                val all = sessionRepo.getSessions(
+                    page = 0,
+                    size = 100
+                )
 
-                fun parseInstant(value: String?): Instant? =
-                    try {
-                        value?.let(Instant::parse)
-                    } catch (_: Exception) {
-                        null
+                val upcoming = all
+                    .filter { session ->
+                        session.status == SessionStatus.SCHEDULED ||
+                                session.status == SessionStatus.ACTIVE
+                    }
+                    .sortedBy { session ->
+                        parseInstant(session.startAt) ?: Instant.MAX
                     }
 
-                val upcoming = all.filter { session ->
-                    val end = parseInstant(session.endsAt)
-                    when (session.status) {
-                        SessionStatus.SCHEDULED,
-                        SessionStatus.ACTIVE ->
-                            end == null || end.isAfter(now)
-                        else -> false
+                val past = all
+                    .filter { session ->
+                        session.status == SessionStatus.ENDED ||
+                                session.status == SessionStatus.CANCELED
                     }
-                }
-
-                val past = all.filter { session ->
-                    val end = parseInstant(session.endsAt)
-                    when (session.status) {
-                        SessionStatus.ENDED -> true
-                        SessionStatus.SCHEDULED ->
-                            end != null && end.isBefore(now)
-                        else -> false
+                    .sortedByDescending { session ->
+                        parseInstant(session.endsAt)
+                            ?: parseInstant(session.startAt)
+                            ?: Instant.EPOCH
                     }
-                }
 
                 _state.update {
                     it.copy(
@@ -93,6 +97,18 @@ class InterviewViewModel(
                     )
                 }
             }
+        }
+    }
+
+    fun refresh() {
+        loadSessions()
+    }
+
+    private fun parseInstant(value: String?): Instant? {
+        return try {
+            value?.let(Instant::parse)
+        } catch (_: Exception) {
+            null
         }
     }
 }

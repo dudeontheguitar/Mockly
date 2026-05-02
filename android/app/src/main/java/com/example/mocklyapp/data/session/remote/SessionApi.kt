@@ -98,6 +98,7 @@ interface SessionApi {
         @Path("id") id: String
     ): LiveKitTokenDto
 
+    // Возвращает 404 если нет активной сессии — обрабатывается в репозитории
     @GET("sessions/me/active")
-    suspend fun getMyActiveSession(): SessionDto?
+    suspend fun getMyActiveSession(): SessionDto
 }

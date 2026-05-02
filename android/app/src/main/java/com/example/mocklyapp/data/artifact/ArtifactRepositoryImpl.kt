@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.mocklyapp.data.artifact.remote.ArtifactApi
 import com.example.mocklyapp.data.artifact.remote.CompleteUploadRequestDto
 import com.example.mocklyapp.data.artifact.remote.RequestUploadRequestDto
+import com.example.mocklyapp.domain.artifact.ArtifactRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -16,7 +17,7 @@ import java.net.URL
 
 class ArtifactRepositoryImpl(
     private val api: ArtifactApi
-) : com.example.mocklyapp.domain.artifact.ArtifactRepository {
+) : ArtifactRepository {
 
     private val uploadClient = OkHttpClient()
 
@@ -25,22 +26,30 @@ class ArtifactRepositoryImpl(
         file: File,
         durationSec: Int
     ): Int = withContext(Dispatchers.IO) {
-
         Log.d("ArtifactRepo", "=== uploadSessionAudio START ===")
         Log.d(
             "ArtifactRepo",
             "sessionId=$sessionId, file=${file.absolutePath}, size=${file.length()}, durationSec=$durationSec"
         )
 
+        if (!file.exists()) {
+            throw UploadException.LocalFileError("Audio file does not exist: ${file.absolutePath}")
+        }
+
+        if (file.length() <= 0L) {
+            throw UploadException.LocalFileError("Audio file is empty: ${file.absolutePath}")
+        }
+
+        val contentType = "audio/mp4"
+
         val requestUpload = RequestUploadRequestDto(
             type = "AUDIO_MIXED",
             fileName = file.name,
             fileSizeBytes = file.length(),
-            contentType = "audio/mpeg"
+            contentType = contentType
         )
 
-        // 1) presigned URL от бэка
-        val resp = try {
+        val uploadInfo = try {
             api.requestUpload(
                 sessionId = sessionId,
                 body = requestUpload
@@ -55,17 +64,23 @@ class ArtifactRepositoryImpl(
 
         Log.d(
             "ArtifactRepo",
-            "requestUpload -> artifactId=${resp.artifactId}, objectName=${resp.objectName}, expiresIn=${resp.expiresInSeconds}s"
+            "requestUpload -> artifactId=${uploadInfo.artifactId}, objectName=${uploadInfo.objectName}, expiresIn=${uploadInfo.expiresInSeconds}s"
         )
 
-        val rawUrl = resp.uploadUrl
+        val rawUrl = uploadInfo.uploadUrl
         Log.d("ArtifactRepo", "Raw uploadUrl: $rawUrl")
 
-        // 2) собираем Host для MinIO и URL для эмулятора
         val original = URL(rawUrl)
+
         val originalHostHeader = buildString {
             append(original.host)
-            val port = if (original.port != -1) original.port else original.defaultPort
+
+            val port = if (original.port != -1) {
+                original.port
+            } else {
+                original.defaultPort
+            }
+
             if (port != 80 && port != 443 && port != -1) {
                 append(":")
                 append(port)
@@ -80,21 +95,20 @@ class ArtifactRepositoryImpl(
         Log.d("ArtifactRepo", "Emulator uploadUrl: $emulatorUrl")
         Log.d("ArtifactRepo", "Host header: $originalHostHeader")
 
-        val mediaType = "audio/mpeg".toMediaType()
+        val mediaType = contentType.toMediaType()
         val body = file.asRequestBody(mediaType)
 
-        // 3) PUT в MinIO по presigned URL
-        Log.d("ArtifactRepo", "Sending PUT to MinIO for artifactId=${resp.artifactId}")
         val putRequest = Request.Builder()
             .url(emulatorUrl)
             .header("Host", originalHostHeader)
+            .header("Content-Type", contentType)
             .put(body)
             .build()
 
         val putResponse = try {
             uploadClient.newCall(putRequest).execute()
         } catch (e: Exception) {
-            Log.e("ArtifactRepo", "PUT request failed for artifactId=${resp.artifactId}", e)
+            Log.e("ArtifactRepo", "PUT request failed for artifactId=${uploadInfo.artifactId}", e)
             throw UploadException.NetworkError(e)
         }
 
@@ -112,26 +126,26 @@ class ArtifactRepositoryImpl(
 
         Log.d("ArtifactRepo", "PUT successful, file uploaded to MinIO")
 
-        // 4) completeUpload на бэке
         val completeReq = CompleteUploadRequestDto(
             fileSizeBytes = file.length(),
-            durationSec = durationSec
+            durationSec = durationSec.coerceAtLeast(1)
         )
 
         Log.d(
             "ArtifactRepo",
-            "Calling completeUpload(sessionId=$sessionId, artifactId=${resp.artifactId})"
+            "Calling completeUpload(sessionId=$sessionId, artifactId=${uploadInfo.artifactId})"
         )
 
         try {
             val response = api.completeUpload(
                 sessionId = sessionId,
-                artifactId = resp.artifactId,
+                artifactId = uploadInfo.artifactId,
                 body = completeReq
             )
+
             Log.d(
                 "ArtifactRepo",
-                "completeUpload OK for artifactId=${resp.artifactId}, response=$response"
+                "completeUpload OK for artifactId=${uploadInfo.artifactId}, response=$response"
             )
         } catch (e: HttpException) {
             Log.e(
@@ -147,15 +161,16 @@ class ArtifactRepositoryImpl(
 
         Log.d(
             "ArtifactRepo",
-            "=== uploadSessionAudio FINISHED successfully for artifactId=${resp.artifactId} ==="
+            "=== uploadSessionAudio FINISHED successfully for artifactId=${uploadInfo.artifactId} ==="
         )
 
-        durationSec
+        durationSec.coerceAtLeast(1)
     }
 }
 
-sealed class UploadException(message: String, cause: Throwable? = null) :
-    Exception(message, cause) {
+sealed class UploadException(message: String, cause: Throwable? = null) : Exception(message, cause) {
+
+    class LocalFileError(message: String) : UploadException(message)
 
     class NetworkError(cause: Throwable) :
         UploadException("Network error: ${cause.message}", cause)

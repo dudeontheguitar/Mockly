@@ -52,39 +52,38 @@ class RegisterViewModel(
     fun onRegisterClick() {
         val s = _state.value
 
-        if (s.name.isBlank() ||
-            s.surname.isBlank() ||
-            s.email.isBlank() ||
-            s.password.isBlank()
+        val name = s.name.trim()
+        val surname = s.surname.trim()
+        val email = s.email.trim()
+        val password = s.password
+
+        if (
+            name.isBlank() ||
+            surname.isBlank() ||
+            email.isBlank() ||
+            password.isBlank()
         ) {
             setError("Please fill in all fields.")
             return
         }
-        if (!s.name.matches(Regex("^[A-Za-zА-Яа-яЁё]+$"))) {
+
+        if (!name.matches(Regex("^[A-Za-zА-Яа-яЁё]+$"))) {
             setError("Name must contain only letters.")
             return
         }
 
-        if (!s.surname.matches(Regex("^[A-Za-zА-Яа-яЁё]+$"))) {
-            setError("Name must contain only letters.")
+        if (!surname.matches(Regex("^[A-Za-zА-Яа-яЁё]+$"))) {
+            setError("Surname must contain only letters.")
             return
         }
 
-
-        val allowedDomains = listOf("@gmail.com", "@mail.ru", "@sdu.edu.kz")
-
-        if (!allowedDomains.any { s.email.endsWith(it) }) {
+        if (!isValidEmail(email)) {
             setError("Please enter a valid email.")
             return
         }
 
-        if (s.password.length < 8) {
+        if (password.length < 8) {
             setError("Password must be at least 8 characters long.")
-            return
-        }
-
-        if (s.role.isBlank()) {
-            setError("Please select your role.")
             return
         }
 
@@ -98,25 +97,28 @@ class RegisterViewModel(
         }
 
         viewModelScope.launch {
-            _state.value = s.copy(isLoading = true, error = null)
+            _state.value = _state.value.copy(
+                isLoading = true,
+                error = null,
+                isSuccess = false
+            )
 
             try {
-
                 repo.register(
-                    email = s.email,
-                    password = s.password,
-                    name = s.name,
-                    surname = s.surname,
+                    email = email,
+                    password = password,
+                    name = name,
+                    surname = surname,
                     role = backendRole
                 )
 
                 _state.value = _state.value.copy(
                     isLoading = false,
+                    error = null,
                     isSuccess = true
                 )
             } catch (e: Exception) {
-                val msg = mapError(e)
-                setError(msg)
+                setError(mapError(e))
             }
         }
     }
@@ -126,6 +128,12 @@ class RegisterViewModel(
             isLoading = false,
             error = msg,
             isSuccess = false
+        )
+    }
+
+    private fun isValidEmail(email: String): Boolean {
+        return email.matches(
+            Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
         )
     }
 

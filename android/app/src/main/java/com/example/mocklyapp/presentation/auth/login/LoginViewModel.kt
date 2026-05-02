@@ -42,7 +42,7 @@ class LoginViewModel(
             return
         }
 
-        val allowedDomains = listOf("@gmail.com", "@mail.ru", "@sdu.edu.kz")
+        val allowedDomains = listOf("@gmail.com", "@mail.ru", "@sdu.edu.kz, @test.com")
 
         if (!allowedDomains.any { s.email.endsWith(it) }) {
             setError("Please enter a valid email.")
