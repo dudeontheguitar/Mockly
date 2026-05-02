@@ -1,6 +1,8 @@
 package com.mockly.api.controller;
 
+import com.mockly.core.dto.auth.ChangePasswordRequest;
 import com.mockly.core.dto.auth.LoginRequest;
+import com.mockly.core.dto.auth.MessageResponse;
 import com.mockly.core.dto.auth.RefreshTokenRequest;
 import com.mockly.core.dto.auth.RegisterRequest;
 import com.mockly.core.dto.auth.TokenResponse;
@@ -11,7 +13,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -44,9 +49,19 @@ public class AuthController {
 
     @PostMapping("/logout")
     @Operation(summary = "Logout user", description = "Invalidates the refresh token")
-    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenRequest request) {
+    public ResponseEntity<MessageResponse> logout(@Valid @RequestBody RefreshTokenRequest request) {
         authService.logout(request.refreshToken());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(new MessageResponse("Logged out successfully"));
+    }
+
+    @PostMapping("/change-password")
+    @Operation(summary = "Change password", description = "Changes the password for the authenticated user")
+    public ResponseEntity<MessageResponse> changePassword(
+            Authentication authentication,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        UUID userId = UUID.fromString(authentication.getName());
+        authService.changePassword(userId, request.currentPassword(), request.newPassword());
+        return ResponseEntity.ok(new MessageResponse("Password changed successfully"));
     }
 }
 

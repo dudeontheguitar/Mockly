@@ -152,6 +152,20 @@ public class AuthService {
         }
     }
 
+    @Transactional
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId.toString()));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new BadRequestException("Current password is incorrect");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        redisTemplate.delete(REFRESH_TOKEN_PREFIX + userId);
+    }
+
     private void storeRefreshToken(String refreshToken, UUID userId) {
         redisTemplate.opsForValue().set(
                 REFRESH_TOKEN_PREFIX + userId,

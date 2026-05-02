@@ -43,6 +43,12 @@ public class Profile {
     @Column(length = 50)
     private String level;
 
+    @Column(columnDefinition = "TEXT")
+    private String bio;
+
+    @Column(length = 100)
+    private String location;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     @Builder.Default

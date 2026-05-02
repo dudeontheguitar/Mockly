@@ -1,6 +1,7 @@
 package com.mockly.core.dto.user;
 
 import com.mockly.data.entity.Profile;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,6 +12,9 @@ public record UserProfileResponse(
         Profile.ProfileRole role,
         String avatarUrl,
         String level,
-        List<String> skills
+        List<String> skills,
+        String bio,
+        String location,
+        OffsetDateTime createdAt
 ) {}
 

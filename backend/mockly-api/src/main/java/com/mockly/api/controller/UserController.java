@@ -1,6 +1,9 @@
 package com.mockly.api.controller;
 
+import com.mockly.core.dto.auth.MessageResponse;
+import com.mockly.core.dto.user.DeleteAccountRequest;
 import com.mockly.core.dto.user.UpdateProfileRequest;
+import com.mockly.core.dto.user.UserListResponse;
 import com.mockly.core.dto.user.UserResponse;
 import com.mockly.core.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -46,6 +49,26 @@ public class UserController {
     public ResponseEntity<UserResponse> getUserById(@PathVariable UUID id) {
         UserResponse response = userService.getUserById(id);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/interviewers")
+    @Operation(summary = "List interviewers", description = "Returns interviewers for candidate discovery")
+    public ResponseEntity<UserListResponse> listInterviewers(
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UserListResponse response = userService.listInterviewers(search, page, size);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/me")
+    @Operation(summary = "Delete current user", description = "Deletes the current user's account")
+    public ResponseEntity<MessageResponse> deleteCurrentUser(
+            Authentication authentication,
+            @Valid @RequestBody DeleteAccountRequest request) {
+        UUID userId = UUID.fromString(authentication.getName());
+        userService.deleteAccount(userId, request.password());
+        return ResponseEntity.ok(new MessageResponse("Account deleted successfully"));
     }
 }
 

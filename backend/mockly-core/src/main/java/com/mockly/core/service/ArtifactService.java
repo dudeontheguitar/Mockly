@@ -9,6 +9,7 @@ import com.mockly.core.exception.BadRequestException;
 import com.mockly.core.exception.ResourceNotFoundException;
 import com.mockly.data.entity.Artifact;
 import com.mockly.data.repository.ArtifactRepository;
+import com.mockly.data.repository.SessionParticipantRepository;
 import com.mockly.data.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +42,7 @@ public class ArtifactService {
 
     private final ArtifactRepository artifactRepository;
     private final SessionRepository sessionRepository;
+    private final SessionParticipantRepository participantRepository;
     private final MinIOService minIOService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -59,8 +61,9 @@ public class ArtifactService {
                 sessionId, request.type(), request.fileName());
 
         // Validate session exists and user has access
-        sessionRepository.findById(sessionId)
+        var session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
+        requireSessionAccess(session.getCreatedBy(), sessionId, userId);
 
         // Validate file size
         if (request.fileSizeBytes() > MAX_FILE_SIZE_BYTES) {
@@ -116,8 +119,9 @@ public class ArtifactService {
         log.info("Completing upload for artifact: {} in session: {}", artifactId, sessionId);
 
         // Validate session exists
-        sessionRepository.findById(sessionId)
+        var session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
+        requireSessionAccess(session.getCreatedBy(), sessionId, userId);
 
         // Get artifact
         Artifact artifact = artifactRepository.findById(artifactId)
@@ -167,6 +171,9 @@ public class ArtifactService {
         if (!artifact.getSessionId().equals(sessionId)) {
             throw new BadRequestException("Artifact does not belong to this session");
         }
+        var session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
+        requireSessionAccess(session.getCreatedBy(), sessionId, userId);
 
         return toResponse(artifact);
     }
@@ -177,8 +184,9 @@ public class ArtifactService {
     @Transactional(readOnly = true)
     public List<ArtifactResponse> listArtifacts(UUID sessionId, UUID userId) {
         // Validate session exists
-        sessionRepository.findById(sessionId)
+        var session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
+        requireSessionAccess(session.getCreatedBy(), sessionId, userId);
 
         List<Artifact> artifacts = artifactRepository.findBySessionId(sessionId);
         return artifacts.stream()
@@ -219,6 +227,12 @@ public class ArtifactService {
     private String sanitizeFileName(String fileName) {
         // Remove path separators and dangerous characters
         return fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private void requireSessionAccess(UUID createdBy, UUID sessionId, UUID userId) {
+        if (!createdBy.equals(userId) && !participantRepository.existsBySessionIdAndUserId(sessionId, userId)) {
+            throw new BadRequestException("You don't have access to this session");
+        }
     }
 
     /**

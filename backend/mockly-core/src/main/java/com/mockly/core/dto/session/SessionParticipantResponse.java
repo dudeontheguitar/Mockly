@@ -13,6 +13,7 @@ public record SessionParticipantResponse(
         UUID userId,
         String userDisplayName,
         String userEmail,
+        String userAvatarUrl,
         ParticipantRole roleInSession,
         OffsetDateTime joinedAt,
         OffsetDateTime leftAt

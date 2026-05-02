@@ -332,7 +332,7 @@ private fun AvailableInterview(navController: NavHostController) {
             location = "Remote",
             status = "Start",
             interviewerName = "Baglan N.",
-            interviewerId = "3e1737e8-4c34-4440-8adb-cd5efe079f82"
+            interviewerId = "f76f86b8-642a-49d6-b1de-3cdf41f8e324"
         )
     )
 

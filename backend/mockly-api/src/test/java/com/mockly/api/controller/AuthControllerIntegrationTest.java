@@ -65,15 +65,16 @@ class AuthControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        String email = "test-" + java.util.UUID.randomUUID() + "@example.com";
         validRegisterRequest = new RegisterRequest(
-                "test@example.com",
+                email,
                 "password123",
                 "Test User",
                 Profile.ProfileRole.CANDIDATE
         );
 
         validLoginRequest = new LoginRequest(
-                "test@example.com",
+                email,
                 "password123"
         );
     }

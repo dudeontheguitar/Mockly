@@ -171,6 +171,11 @@ public class SessionService {
             throw new BadRequestException("User is not authorized to join this session");
         }
 
+        if (session.getStatus() == SessionStatus.SCHEDULED) {
+            session.setStatus(SessionStatus.ACTIVE);
+            session = sessionRepository.save(session);
+        }
+
         log.info("User {} authorized to join session {}", userId, sessionId);
 
         // Reload session with participants

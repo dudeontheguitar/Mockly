@@ -8,6 +8,7 @@ import com.mockly.data.entity.Report;
 import com.mockly.data.enums.ArtifactType;
 import com.mockly.data.repository.ArtifactRepository;
 import com.mockly.data.repository.ReportRepository;
+import com.mockly.data.repository.SessionParticipantRepository;
 import com.mockly.data.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ public class ReportService {
 
     private final ReportRepository reportRepository;
     private final SessionRepository sessionRepository;
+    private final SessionParticipantRepository participantRepository;
     private final ArtifactRepository artifactRepository;
     private final ReportProcessingService reportProcessingService;
 
@@ -45,9 +47,10 @@ public class ReportService {
     public ReportResponse triggerReportGeneration(UUID sessionId, UUID userId) {
         log.info("Triggering report generation for session: {}", sessionId);
 
-        // Validate session exists
-        sessionRepository.findById(sessionId)
+        // Validate session exists and user has access.
+        var session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
+        requireSessionAccess(session.getCreatedBy(), sessionId, userId);
 
         Artifact artifact = findLatestAudioArtifact(sessionId)
                 .orElseThrow(() -> new BadRequestException(
@@ -62,8 +65,9 @@ public class ReportService {
     public ReportResponse triggerReportGenerationForArtifact(UUID sessionId, UUID userId, UUID artifactId) {
         log.info("Triggering report generation for session: {}, artifact: {}", sessionId, artifactId);
 
-        sessionRepository.findById(sessionId)
+        var session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
+        requireSessionAccess(session.getCreatedBy(), sessionId, userId);
 
         Artifact artifact = artifactRepository.findById(artifactId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artifact not found: " + artifactId));
@@ -95,8 +99,9 @@ public class ReportService {
      * @return Report response
      */
     public ReportResponse getReport(UUID sessionId, UUID userId) {
-        sessionRepository.findById(sessionId)
+        var session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
+        requireSessionAccess(session.getCreatedBy(), sessionId, userId);
 
         Optional<Report> report = reportRepository.findBySessionId(sessionId);
         if (report.isPresent()) {
@@ -185,6 +190,12 @@ public class ReportService {
         return type == ArtifactType.AUDIO_MIXED
                 || type == ArtifactType.AUDIO_LEFT
                 || type == ArtifactType.AUDIO_RIGHT;
+    }
+
+    private void requireSessionAccess(UUID createdBy, UUID sessionId, UUID userId) {
+        if (!createdBy.equals(userId) && !participantRepository.existsBySessionIdAndUserId(sessionId, userId)) {
+            throw new BadRequestException("You don't have access to this session");
+        }
     }
 
     private void scheduleReportProcessingAfterCommit(UUID sessionId, UUID artifactId) {

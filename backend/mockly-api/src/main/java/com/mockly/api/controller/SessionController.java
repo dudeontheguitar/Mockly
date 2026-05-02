@@ -5,6 +5,7 @@ import com.mockly.core.dto.session.CreateSessionRequest;
 import com.mockly.core.dto.session.LiveKitTokenResponse;
 import com.mockly.core.dto.session.SessionListResponse;
 import com.mockly.core.dto.session.SessionResponse;
+import com.mockly.core.dto.session.SessionStatusResponse;
 import com.mockly.core.exception.BadRequestException;
 import com.mockly.core.service.LiveKitService;
 import com.mockly.core.service.SessionService;
@@ -67,7 +68,7 @@ public class SessionController {
             summary = "Leave a session",
             description = "Leave an active session. Updates participant's left_at timestamp."
     )
-    public ResponseEntity<Void> leaveSession(
+    public ResponseEntity<SessionStatusResponse> leaveSession(
             Authentication authentication,
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authentication.getName());
@@ -75,7 +76,7 @@ public class SessionController {
         SessionResponse response = sessionService.getSession(id, userId);
         eventPublisher.publishParticipantLeft(id, userId, response);
         
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(new SessionStatusResponse(response.id(), response.status()));
     }
 
     @PostMapping("/{id}/end")
@@ -83,7 +84,7 @@ public class SessionController {
             summary = "End a session",
             description = "End a session. Only session creator or participants can end the session."
     )
-    public ResponseEntity<Void> endSession(
+    public ResponseEntity<SessionStatusResponse> endSession(
             Authentication authentication,
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authentication.getName());
@@ -91,7 +92,7 @@ public class SessionController {
         SessionResponse response = sessionService.getSession(id, userId);
         eventPublisher.publishSessionEnded(id, response);
         
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(new SessionStatusResponse(response.id(), response.status()));
     }
 
     @GetMapping("/{id}")

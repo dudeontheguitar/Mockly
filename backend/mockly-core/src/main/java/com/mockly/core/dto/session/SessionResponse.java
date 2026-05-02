@@ -19,6 +19,7 @@ public record SessionResponse(
         String roomProvider,
         String roomId,
         String recordingId,
+        SessionInterviewResponse interview,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
         List<SessionParticipantResponse> participants,
