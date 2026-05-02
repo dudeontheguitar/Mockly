@@ -372,65 +372,9 @@ public class SessionService {
     public SessionListResponse listSessions(UUID userId, int page, int size, SessionStatus status) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        Page<Session> sessionsPage;
-        if (status != null) {
-            // Filter by status - get sessions where user is creator or participant
-            List<Session> allCreatedSessions = sessionRepository
-                    .findByCreatedByOrderByCreatedAtDesc(userId);
-            List<Session> createdSessions = allCreatedSessions.stream()
-                    .filter(s -> s.getStatus() == status)
-                    .toList();
-            List<Session> participantSessions = sessionRepository
-                    .findByParticipantUserIdAndStatus(userId, status);
-
-            // Combine and paginate manually (simplified - in production, use proper query)
-            List<Session> allSessions = createdSessions;
-            for (Session session : participantSessions) {
-                if (!allSessions.contains(session)) {
-                    allSessions.add(session);
-                }
-            }
-            allSessions.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
-
-            int start = page * size;
-            int end = Math.min(start + size, allSessions.size());
-            List<Session> pagedSessions = start < allSessions.size()
-                    ? allSessions.subList(start, end)
-                    : List.of();
-
-            sessionsPage = new org.springframework.data.domain.PageImpl<>(
-                    pagedSessions,
-                    pageable,
-                    allSessions.size()
-            );
-        } else {
-            // Get all sessions where user is creator or participant
-            List<Session> createdSessions = sessionRepository
-                    .findByCreatedByOrderByCreatedAtDesc(userId);
-            List<Session> participantSessions = sessionRepository
-                    .findByParticipantUserId(userId);
-
-            // Combine and paginate
-            List<Session> allSessions = createdSessions;
-            for (Session session : participantSessions) {
-                if (!allSessions.contains(session)) {
-                    allSessions.add(session);
-                }
-            }
-            allSessions.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
-
-            int start = page * size;
-            int end = Math.min(start + size, allSessions.size());
-            List<Session> pagedSessions = start < allSessions.size()
-                    ? allSessions.subList(start, end)
-                    : List.of();
-
-            sessionsPage = new org.springframework.data.domain.PageImpl<>(
-                    pagedSessions,
-                    pageable,
-                    allSessions.size()
-            );
-        }
+        Page<Session> sessionsPage = status == null
+                ? sessionRepository.findVisibleToUser(userId, pageable)
+                : sessionRepository.findVisibleToUserAndStatus(userId, status, pageable);
 
         List<SessionResponse> sessionResponses = sessionMapper.toResponseList(sessionsPage.getContent());
 
@@ -450,11 +394,21 @@ public class SessionService {
      */
     @Transactional(readOnly = true)
     public Optional<SessionResponse> getActiveSession(UUID userId) {
+        Pageable firstActiveSession = PageRequest.of(
+                0,
+                1,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+
         Optional<Session> activeSession = sessionRepository
-                .findFirstByCreatedByAndStatusInOrderByCreatedAtDesc(
+                .findVisibleToUserAndStatusIn(
                         userId,
-                        List.of(SessionStatus.SCHEDULED, SessionStatus.ACTIVE)
-                );
+                        List.of(SessionStatus.SCHEDULED, SessionStatus.ACTIVE),
+                        firstActiveSession
+                )
+                .getContent()
+                .stream()
+                .findFirst();
 
         return activeSession.map(sessionMapper::toResponse);
     }

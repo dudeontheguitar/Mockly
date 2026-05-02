@@ -25,7 +25,7 @@ public class SessionEventPublisher {
 
     /**
      * Publish session created event.
-     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions
+     * Sends to: /topic/sessions/{sessionId} and /topic/users/{userId}/sessions for all participants
      */
     public void publishSessionCreated(Session session, SessionResponse sessionResponse) {
         publishSessionCreated(session.getId(), session.getCreatedBy(), sessionResponse);
@@ -33,12 +33,18 @@ public class SessionEventPublisher {
 
     public void publishSessionCreated(UUID sessionId, UUID userId, SessionResponse sessionResponse) {
         String sessionTopic = "/topic/sessions/" + sessionId;
-        String userTopic = "/topic/users/" + userId + "/sessions";
 
         SessionEvent event = new SessionEvent("SESSION_CREATED", sessionResponse);
 
         messagingTemplate.convertAndSend(sessionTopic, event);
-        messagingTemplate.convertAndSend(userTopic, event);
+        if (sessionResponse != null
+                && sessionResponse.participants() != null
+                && !sessionResponse.participants().isEmpty()) {
+            notifyParticipants(event, sessionResponse);
+        } else {
+            String userTopic = "/topic/users/" + userId + "/sessions";
+            messagingTemplate.convertAndSend(userTopic, event);
+        }
 
         log.info("Published SESSION_CREATED event for session: {}", sessionId);
     }

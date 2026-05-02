@@ -126,7 +126,7 @@ public class SessionController {
     @GetMapping("/me/active")
     @Operation(
             summary = "Get active session",
-            description = "Returns the current user's active session (SCHEDULED or ACTIVE), if any."
+            description = "Returns the current user's active session (SCHEDULED or ACTIVE) where the user is creator or participant, if any."
     )
     public ResponseEntity<SessionResponse> getActiveSession(Authentication authentication) {
         UUID userId = UUID.fromString(authentication.getName());

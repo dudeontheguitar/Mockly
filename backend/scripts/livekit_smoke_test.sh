@@ -5,9 +5,10 @@ set -euo pipefail
 # What it validates:
 # 1) register candidate + interviewer
 # 2) create session
-# 3) both users join session
-# 4) both users receive LiveKit tokens for the same room
-# 5) session becomes ACTIVE
+# 3) interviewer can discover the created session ID
+# 4) both users join session
+# 5) both users receive LiveKit tokens for the same room
+# 6) session becomes ACTIVE
 #
 # Optional:
 # - set AUTO_END=true to end the created session at the end of the script
@@ -132,7 +133,7 @@ candidate_name="Candidate Smoke ${suffix}"
 interviewer_name="Interviewer Smoke ${suffix}"
 scheduled_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-echo "1/7 Register candidate"
+echo "1/8 Register candidate"
 http_call "POST" "/auth/register" "" \
   "{\"email\":\"${candidate_email}\",\"password\":\"${PASSWORD}\",\"displayName\":\"${candidate_name}\",\"role\":\"CANDIDATE\"}"
 expect_status "201" "register candidate"
@@ -141,7 +142,7 @@ candidate_user_id="$(json_required '.userId')"
 require_non_empty "candidate_access_token" "${candidate_access_token}"
 require_non_empty "candidate_user_id" "${candidate_user_id}"
 
-echo "2/7 Register interviewer"
+echo "2/8 Register interviewer"
 http_call "POST" "/auth/register" "" \
   "{\"email\":\"${interviewer_email}\",\"password\":\"${PASSWORD}\",\"displayName\":\"${interviewer_name}\",\"role\":\"INTERVIEWER\"}"
 expect_status "201" "register interviewer"
@@ -150,7 +151,7 @@ interviewer_user_id="$(json_required '.userId')"
 require_non_empty "interviewer_access_token" "${interviewer_access_token}"
 require_non_empty "interviewer_user_id" "${interviewer_user_id}"
 
-echo "3/7 Create session"
+echo "3/8 Create session"
 http_call "POST" "/sessions" "${candidate_access_token}" \
   "{\"interviewerId\":\"${interviewer_user_id}\",\"scheduledAt\":\"${scheduled_at}\"}"
 expect_status "201" "create session"
@@ -167,15 +168,26 @@ if [[ "${created_room_id}" != "${expected_room_id}" ]]; then
   exit 1
 fi
 
-echo "4/7 Candidate joins session"
+echo "4/8 Interviewer discovers active session"
+http_call "GET" "/sessions/me/active" "${interviewer_access_token}" ""
+expect_status "200" "interviewer active session lookup"
+interviewer_active_session_id="$(json_required '.id')"
+if [[ "${interviewer_active_session_id}" != "${session_id}" ]]; then
+  echo "FAILED: interviewer active session ID mismatch"
+  echo "Expected: ${session_id}"
+  echo "Got: ${interviewer_active_session_id}"
+  exit 1
+fi
+
+echo "5/8 Candidate joins session"
 http_call "POST" "/sessions/${session_id}/join" "${candidate_access_token}" ""
 expect_status "200" "candidate join"
 
-echo "5/7 Interviewer joins session"
+echo "6/8 Interviewer joins session"
 http_call "POST" "/sessions/${session_id}/join" "${interviewer_access_token}" ""
 expect_status "200" "interviewer join"
 
-echo "6/7 Get LiveKit token for candidate"
+echo "7/8 Get LiveKit token for candidate"
 http_call "GET" "/sessions/${session_id}/token" "${candidate_access_token}" ""
 expect_status "200" "candidate livekit token"
 candidate_lk_token="$(json_required '.token')"
@@ -185,7 +197,7 @@ require_non_empty "candidate_lk_token" "${candidate_lk_token}"
 require_non_empty "candidate_lk_room_id" "${candidate_lk_room_id}"
 require_non_empty "livekit_url" "${livekit_url}"
 
-echo "7/7 Get LiveKit token for interviewer"
+echo "8/8 Get LiveKit token for interviewer"
 http_call "GET" "/sessions/${session_id}/token" "${interviewer_access_token}" ""
 expect_status "200" "interviewer livekit token"
 interviewer_lk_token="$(json_required '.token')"

@@ -176,7 +176,7 @@ $candidateName = "Candidate Smoke $suffix"
 $interviewerName = "Interviewer Smoke $suffix"
 $scheduledAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
-Write-Host "1/7 Register candidate"
+Write-Host "1/8 Register candidate"
 Invoke-HttpCall -Method "POST" -Path "/auth/register" -Data @{
     email = $candidateEmail
     password = $Password
@@ -187,7 +187,7 @@ Expect-Status -Expected 201 -Step "register candidate"
 $candidateAccessToken = Get-RequiredField -FieldName "accessToken"
 $candidateUserId = Get-RequiredField -FieldName "userId"
 
-Write-Host "2/7 Register interviewer"
+Write-Host "2/8 Register interviewer"
 Invoke-HttpCall -Method "POST" -Path "/auth/register" -Data @{
     email = $interviewerEmail
     password = $Password
@@ -198,7 +198,7 @@ Expect-Status -Expected 201 -Step "register interviewer"
 $interviewerAccessToken = Get-RequiredField -FieldName "accessToken"
 $interviewerUserId = Get-RequiredField -FieldName "userId"
 
-Write-Host "3/7 Create session"
+Write-Host "3/8 Create session"
 Invoke-HttpCall -Method "POST" -Path "/sessions" -Token $candidateAccessToken -Data @{
     interviewerId = $interviewerUserId
     scheduledAt = $scheduledAt
@@ -215,22 +215,33 @@ if ($createdRoomId -ne $expectedRoomId) {
     exit 1
 }
 
-Write-Host "4/7 Candidate joins session"
+Write-Host "4/8 Interviewer discovers active session"
+Invoke-HttpCall -Method "GET" -Path "/sessions/me/active" -Token $interviewerAccessToken
+Expect-Status -Expected 200 -Step "interviewer active session lookup"
+$interviewerActiveSessionId = Get-RequiredField -FieldName "id"
+if ($interviewerActiveSessionId -ne $sessionId) {
+    Write-Host "FAILED: interviewer active session ID mismatch"
+    Write-Host "Expected: $sessionId"
+    Write-Host "Got: $interviewerActiveSessionId"
+    exit 1
+}
+
+Write-Host "5/8 Candidate joins session"
 Invoke-HttpCall -Method "POST" -Path "/sessions/$sessionId/join" -Token $candidateAccessToken
 Expect-Status -Expected 200 -Step "candidate join"
 
-Write-Host "5/7 Interviewer joins session"
+Write-Host "6/8 Interviewer joins session"
 Invoke-HttpCall -Method "POST" -Path "/sessions/$sessionId/join" -Token $interviewerAccessToken
 Expect-Status -Expected 200 -Step "interviewer join"
 
-Write-Host "6/7 Get LiveKit token for candidate"
+Write-Host "7/8 Get LiveKit token for candidate"
 Invoke-HttpCall -Method "GET" -Path "/sessions/$sessionId/token" -Token $candidateAccessToken
 Expect-Status -Expected 200 -Step "candidate livekit token"
 $candidateLkToken = Get-RequiredField -FieldName "token"
 $candidateLkRoomId = Get-RequiredField -FieldName "roomId"
 $livekitUrl = Get-RequiredField -FieldName "url"
 
-Write-Host "7/7 Get LiveKit token for interviewer"
+Write-Host "8/8 Get LiveKit token for interviewer"
 Invoke-HttpCall -Method "GET" -Path "/sessions/$sessionId/token" -Token $interviewerAccessToken
 Expect-Status -Expected 200 -Step "interviewer livekit token"
 $interviewerLkToken = Get-RequiredField -FieldName "token"
