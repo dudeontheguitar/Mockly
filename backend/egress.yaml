@@ -1,5 +1,5 @@
 api_key: devkey
-api_secret: secret
+api_secret: dev_livekit_secret_min_32_chars_123456
 ws_url: ws://livekit:7880
 insecure: true
 

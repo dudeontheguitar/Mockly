@@ -40,5 +40,15 @@ public interface SessionParticipantRepository extends JpaRepository<SessionParti
      * Find all active participants (not left) in a session.
      */
     List<SessionParticipant> findBySessionIdAndLeftAtIsNull(UUID sessionId);
+
+    /**
+     * Count participants that actually joined the LiveKit room and have not left it.
+     */
+    long countBySessionIdAndJoinedAtIsNotNullAndLeftAtIsNull(UUID sessionId);
+
+    /**
+     * Count participants that have ever joined the LiveKit room.
+     */
+    long countBySessionIdAndJoinedAtIsNotNull(UUID sessionId);
 }
 

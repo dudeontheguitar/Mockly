@@ -51,14 +51,13 @@ public class SessionController {
     @PostMapping("/{id}/join")
     @Operation(
             summary = "Join a session",
-            description = "Join an existing session. Updates session status to ACTIVE if it was SCHEDULED."
+            description = "Authorize the current user to join an existing LiveKit session."
     )
     public ResponseEntity<SessionResponse> joinSession(
             Authentication authentication,
             @PathVariable UUID id) {
         UUID userId = UUID.fromString(authentication.getName());
         SessionResponse response = sessionService.joinSession(id, userId);
-        eventPublisher.publishParticipantJoined(id, userId, response);
         
         return ResponseEntity.ok(response);
     }

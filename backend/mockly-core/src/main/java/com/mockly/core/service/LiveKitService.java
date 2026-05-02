@@ -363,6 +363,7 @@ public class LiveKitService {
 
     private String generateRoomServiceTokenForDelete(String roomId) {
         Map<String, Object> videoGrant = new HashMap<>();
+        videoGrant.put("roomCreate", true);
         videoGrant.put("roomAdmin", true);
         videoGrant.put("room", roomId);
         return generateServiceToken(videoGrant);

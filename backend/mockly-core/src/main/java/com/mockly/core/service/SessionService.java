@@ -141,7 +141,7 @@ public class SessionService {
 
     /**
      * Join an existing session.
-     * Updates session status to ACTIVE if it was SCHEDULED.
+     * Authorizes the caller to connect to the LiveKit room.
      *
      * @param sessionId Session ID
      * @param userId User ID joining the session
@@ -159,43 +159,19 @@ public class SessionService {
             throw new BadRequestException("Cannot join a session that has ended or been canceled");
         }
 
-        // Check if user is already a participant
+        // Check if user is already a participant. REST join only authorizes the
+        // client to enter the interview; LiveKit webhooks mark real RTC presence.
         Optional<SessionParticipant> existingParticipant = participantRepository
                 .findBySessionIdAndUserId(sessionId, userId);
 
-        if (existingParticipant.isPresent()) {
-            SessionParticipant participant = existingParticipant.get();
-            if (participant.getLeftAt() != null) {
-                // Re-joining: update leftAt to null
-                participant.setLeftAt(null);
-                participant.setJoinedAt(OffsetDateTime.now());
-                participantRepository.save(participant);
-            }
-            // Already joined, return session
-        } else {
+        if (existingParticipant.isEmpty()) {
             // New participant - should not happen if session was created correctly
             // But handle it gracefully
             log.warn("User {} joining session {} but not in participant list", userId, sessionId);
             throw new BadRequestException("User is not authorized to join this session");
         }
 
-        // Update session status to ACTIVE if it was SCHEDULED
-        if (session.getStatus() == SessionStatus.SCHEDULED) {
-            session.setStatus(SessionStatus.ACTIVE);
-            session.setStartsAt(OffsetDateTime.now());
-            sessionRepository.save(session);
-        }
-
-        // Update participant joined_at if not set
-        SessionParticipant participant = existingParticipant.get();
-        if (participant.getJoinedAt() == null) {
-            participant.setJoinedAt(OffsetDateTime.now());
-            participantRepository.save(participant);
-        }
-
-        maybeStartSessionRecording(session);
-
-        log.info("User {} successfully joined session {}", userId, sessionId);
+        log.info("User {} authorized to join session {}", userId, sessionId);
 
         // Reload session with participants
         session = sessionRepository.findById(sessionId)
@@ -227,7 +203,8 @@ public class SessionService {
             participantRepository.save(participant);
             log.info("User {} left session {}", userId, sessionId);
 
-            long activeParticipants = participantRepository.findBySessionIdAndLeftAtIsNull(sessionId).size();
+            long activeParticipants = participantRepository
+                    .countBySessionIdAndJoinedAtIsNotNullAndLeftAtIsNull(sessionId);
             if (activeParticipants == 0) {
                 maybeStopSessionRecording(session, "last participant left");
             }
@@ -302,7 +279,8 @@ public class SessionService {
             return;
         }
 
-        long activeParticipants = participantRepository.findBySessionIdAndLeftAtIsNull(session.getId()).size();
+        long activeParticipants = participantRepository
+                .countBySessionIdAndJoinedAtIsNotNullAndLeftAtIsNull(session.getId());
         if (activeParticipants < 2) {
             return;
         }

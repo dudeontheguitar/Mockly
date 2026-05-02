@@ -113,6 +113,7 @@ public class LiveKitWebhookController {
                 case "room_finished" -> handleRoomFinished(payload);
                 case "participant_joined" -> handleParticipantJoined(payload);
                 case "participant_left" -> handleParticipantLeft(payload);
+                case "participant_connection_aborted" -> handleParticipantConnectionAborted(payload);
                 case "egress_started" -> handleEgressStarted(payload);
                 case "egress_ended" -> handleEgressEnded(payload);
                 case "egress_updated" -> log.debug("Received egress_updated webhook event");
@@ -132,15 +133,8 @@ public class LiveKitWebhookController {
         }
 
         sessionRepository.findById(sessionId).ifPresent(session -> {
-            if (session.getStatus() == SessionStatus.SCHEDULED) {
-                session.setStatus(SessionStatus.ACTIVE);
-                session.setStartsAt(OffsetDateTime.now());
-                Session updated = sessionRepository.save(session);
-                log.info("Session {} started from LiveKit room_started event", sessionId);
-
-                var sessionResponse = sessionMapper.toResponse(updated);
-                eventPublisher.publishSessionUpdated(updated, sessionResponse);
-            }
+            log.debug("LiveKit room_started received for session {}; waiting for participant_joined before activation",
+                    sessionId);
         });
     }
 
@@ -152,6 +146,18 @@ public class LiveKitWebhookController {
 
         sessionRepository.findById(sessionId).ifPresent(session -> {
             if (session.getStatus() != SessionStatus.ENDED) {
+                long activeParticipants = participantRepository
+                        .countBySessionIdAndJoinedAtIsNotNullAndLeftAtIsNull(sessionId);
+                long everJoinedParticipants = participantRepository
+                        .countBySessionIdAndJoinedAtIsNotNull(sessionId);
+
+                if (activeParticipants > 0 || everJoinedParticipants == 0) {
+                    log.info("Ignoring LiveKit room_finished for session {} because session state still allows retry " +
+                                    "(activeParticipants={}, everJoinedParticipants={})",
+                            sessionId, activeParticipants, everJoinedParticipants);
+                    return;
+                }
+
                 session.setStatus(SessionStatus.ENDED);
                 session.setEndsAt(OffsetDateTime.now());
                 Session updated = sessionRepository.save(session);
@@ -229,7 +235,8 @@ public class LiveKitWebhookController {
         }
 
         Session refreshedSession = sessionRepository.findById(sessionId).orElse(session);
-        long activeParticipants = participantRepository.findBySessionIdAndLeftAtIsNull(sessionId).size();
+        long activeParticipants = participantRepository
+                .countBySessionIdAndJoinedAtIsNotNullAndLeftAtIsNull(sessionId);
 
         if (activeParticipants == 0 && refreshedSession.getStatus() != SessionStatus.ENDED) {
             maybeStopSessionRecording(refreshedSession, "last participant left (webhook)");
@@ -246,6 +253,45 @@ public class LiveKitWebhookController {
         var sessionResponse = sessionMapper.toResponse(refreshedSession);
         eventPublisher.publishParticipantLeft(refreshedSession, userId, sessionResponse);
         log.info("Participant {} left session {} from LiveKit webhook", userId, sessionId);
+    }
+
+    private void handleParticipantConnectionAborted(Map<String, Object> payload) {
+        UUID sessionId = extractSessionIdFromPayload(payload);
+        UUID userId = extractParticipantUserId(payload);
+        if (sessionId == null || userId == null) {
+            return;
+        }
+
+        Session session = sessionRepository.findById(sessionId).orElse(null);
+        if (session == null) {
+            log.warn("Participant connection aborted for unknown session: {}", sessionId);
+            return;
+        }
+
+        Optional<SessionParticipant> participantOpt = participantRepository.findBySessionIdAndUserId(sessionId, userId);
+        if (participantOpt.isPresent()) {
+            SessionParticipant participant = participantOpt.get();
+            if (participant.getJoinedAt() != null && participant.getLeftAt() == null) {
+                participant.setLeftAt(OffsetDateTime.now());
+                participantRepository.save(participant);
+                Session refreshedSession = sessionRepository.findById(sessionId).orElse(session);
+                var sessionResponse = sessionMapper.toResponse(refreshedSession);
+                eventPublisher.publishParticipantLeft(refreshedSession, userId, sessionResponse);
+            }
+        }
+
+        long everJoinedParticipants = participantRepository.countBySessionIdAndJoinedAtIsNotNull(sessionId);
+        if (everJoinedParticipants == 0
+                && session.getStatus() == SessionStatus.ACTIVE
+                && (session.getRecordingId() == null || session.getRecordingId().isBlank())) {
+            session.setStatus(SessionStatus.SCHEDULED);
+            Session updated = sessionRepository.save(session);
+            var sessionResponse = sessionMapper.toResponse(updated);
+            eventPublisher.publishSessionUpdated(updated, sessionResponse);
+            log.info("Reset session {} to SCHEDULED after LiveKit connection abort before RTC join", sessionId);
+        } else {
+            log.info("LiveKit connection aborted for participant {} in session {}", userId, sessionId);
+        }
     }
 
     private void handleEgressStarted(Map<String, Object> payload) {
@@ -377,7 +423,8 @@ public class LiveKitWebhookController {
             return;
         }
 
-        long activeParticipants = participantRepository.findBySessionIdAndLeftAtIsNull(session.getId()).size();
+        long activeParticipants = participantRepository
+                .countBySessionIdAndJoinedAtIsNotNullAndLeftAtIsNull(session.getId());
         if (activeParticipants < 2) {
             return;
         }

@@ -56,11 +56,12 @@ services:
   livekit:
     image: livekit/livekit-server:latest
     container_name: mockly-livekit
-    command: --dev --bind 0.0.0.0 --config /etc/livekit/livekit.yaml
+    command: --bind 0.0.0.0 --config /etc/livekit/livekit.yaml
     ports:
       - "7880:7880"
       - "7881:7881"
       - "7882:7882/udp"
+      - "50000-50100:50000-50100/udp"
     volumes:
       - ./livekit.yaml:/etc/livekit/livekit.yaml:ro
     depends_on:
@@ -115,8 +116,8 @@ services:
       LIVEKIT_URL: ${LIVEKIT_URL:-ws://localhost:7880}
       LIVEKIT_API_URL: ${LIVEKIT_API_URL:-http://livekit:7880}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
-      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
-      LIVEKIT_WEBHOOK_SECRET: ${LIVEKIT_WEBHOOK_SECRET:-secret}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-dev_livekit_secret_min_32_chars_123456}
+      LIVEKIT_WEBHOOK_SECRET: ${LIVEKIT_WEBHOOK_SECRET:-dev_livekit_secret_min_32_chars_123456}
       LIVEKIT_EGRESS_AUTO_RECORD: ${LIVEKIT_EGRESS_AUTO_RECORD:-true}
       LIVEKIT_EGRESS_S3_ENDPOINT: ${LIVEKIT_EGRESS_S3_ENDPOINT:-http://minio:9000}
       LIVEKIT_EGRESS_WEBHOOK_URL: ${LIVEKIT_EGRESS_WEBHOOK_URL:-http://app:8080/api/webhooks/livekit}
