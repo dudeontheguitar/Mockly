@@ -11,6 +11,7 @@ services:
       API_DOMAIN: ${API_DOMAIN}
       ML_DOMAIN: ${ML_DOMAIN}
       LIVEKIT_DOMAIN: ${LIVEKIT_DOMAIN}
+      MINIO_DOMAIN: ${MINIO_DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -159,7 +160,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
 
-      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ENDPOINT: https://${MINIO_DOMAIN}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: ${MINIO_BUCKET}

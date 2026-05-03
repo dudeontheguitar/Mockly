@@ -15,3 +15,11 @@
 {$LIVEKIT_DOMAIN} {
 	reverse_proxy livekit:7880
 }
+
+{$MINIO_DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy minio:9000 {
+		header_up Host {host}
+	}
+}
