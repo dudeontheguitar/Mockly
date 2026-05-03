@@ -252,7 +252,6 @@ fun ChatItem(item: MessageItem) {
             .clickable { },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Аватар
         Box(
             modifier = Modifier
                 .size(65.dp)
@@ -269,7 +268,6 @@ fun ChatItem(item: MessageItem) {
 
         Spacer(Modifier.width(14.dp))
 
-        // Имя + последнее сообщение
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -293,7 +291,6 @@ fun ChatItem(item: MessageItem) {
             )
         }
 
-        // Время + кружок непрочитанных
         Column(
             horizontalAlignment = Alignment.End
         ) {

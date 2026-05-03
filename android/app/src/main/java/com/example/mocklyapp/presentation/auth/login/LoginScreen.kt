@@ -75,7 +75,6 @@ fun LoginScreen(
             )
             Spacer(modifier = Modifier.height(25.dp))
 
-            // EMAIL
             OutlinedTextField(
                 value = state.email,
                 onValueChange = { viewModel.onEmailChange(it) },
@@ -98,7 +97,6 @@ fun LoginScreen(
                 )
             )
 
-            // PASSWORD
             OutlinedTextField(
                 value = state.password,
                 onValueChange = { viewModel.onPasswordChange(it) },
@@ -132,7 +130,6 @@ fun LoginScreen(
                 )
             }
 
-            // BUTTON
             Button(
                 modifier = Modifier
                     .fillMaxWidth()

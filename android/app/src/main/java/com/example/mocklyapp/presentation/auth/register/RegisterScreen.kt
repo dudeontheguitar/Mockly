@@ -70,7 +70,6 @@ fun RegisterScreen(
             )
             Spacer(modifier = Modifier.height(15.dp))
 
-            // NAME
             OutlinedTextField(
                 value = state.name,
                 onValueChange = { viewModel.onNameChange(it) },
@@ -91,7 +90,6 @@ fun RegisterScreen(
                 )
             )
 
-            // SURNAME (теперь через state + viewModel)
             OutlinedTextField(
                 value = state.surname,
                 onValueChange = { viewModel.onSurnameChange(it) },
@@ -112,7 +110,6 @@ fun RegisterScreen(
                 )
             )
 
-            // EMAIL
             OutlinedTextField(
                 value = state.email,
                 onValueChange = { viewModel.onEmailChange(it) },
@@ -133,7 +130,6 @@ fun RegisterScreen(
                 )
             )
 
-            // PASSWORD
             OutlinedTextField(
                 value = state.password,
                 onValueChange = { viewModel.onPasswordChange(it) },
