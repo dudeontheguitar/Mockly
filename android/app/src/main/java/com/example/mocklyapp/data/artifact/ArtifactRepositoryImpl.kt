@@ -234,10 +234,14 @@ class ArtifactRepositoryImpl(
     private fun buildEmulatorUploadUrl(rawUrl: String): String {
         val original = URL(rawUrl)
 
-        return rawUrl.replace(
-            "${original.protocol}://${original.host}",
-            "${original.protocol}://10.0.2.2"
-        )
+        if (original.host == "minio") {
+            return rawUrl.replace(
+                "${original.protocol}://${original.host}:${original.port}",
+                "http://minio.iness.app"
+            )
+        }
+
+        return rawUrl
     }
 
     private fun buildOriginalHostHeader(rawUrl: String): String {

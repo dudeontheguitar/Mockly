@@ -10,11 +10,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -55,6 +59,7 @@ fun SessionDetailsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
             TopBar(onBack = onBack)
@@ -173,190 +178,198 @@ private fun SessionDetailsContent(
     canJoin: Boolean,
     onStartClick: () -> Unit
 ) {
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(0.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .navigationBarsPadding()
+            .padding(bottom = 24.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 20.dp)
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.White
+            ),
+            elevation = CardDefaults.cardElevation(0.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(70.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFE8E8E8)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.profile),
-                        contentDescription = null,
-                        tint = Color.Gray,
-                        modifier = Modifier.size(34.dp)
-                    )
-                }
-
-                Spacer(Modifier.width(16.dp))
-
-                Column {
-                    Text(
-                        text = title.ifBlank { "Interview Session" },
-                        style = TextStyle(
-                            fontFamily = Poppins,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 22.sp
-                        ),
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    )
-
-                    if (company.isNotBlank()) {
-                        Text(
-                            text = company,
-                            style = TextStyle(
-                                fontFamily = Poppins,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal
-                            ),
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(1.dp)
-                    .background(Color(0xFFE6E6E6))
-            )
+                    .padding(horizontal = 20.dp, vertical = 20.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(70.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE8E8E8)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.profile),
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
 
-            Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.width(16.dp))
 
-            InfoRow(
-                iconRes = R.drawable.profile,
-                label = "Interviewer",
-                value = interviewerName
-            )
+                    Column {
+                        Text(
+                            text = title.ifBlank { "Interview Session" },
+                            style = TextStyle(
+                                fontFamily = Poppins,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 22.sp
+                            ),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        )
 
-            Spacer(Modifier.height(10.dp))
+                        if (company.isNotBlank()) {
+                            Text(
+                                text = company,
+                                style = TextStyle(
+                                    fontFamily = Poppins,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Normal
+                                ),
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+                }
 
-            InfoRow(
-                iconRes = R.drawable.profile,
-                label = "Candidate",
-                value = candidateName
-            )
+                Spacer(Modifier.height(20.dp))
 
-            Spacer(Modifier.height(10.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(Color(0xFFE6E6E6))
+                )
 
-            InfoRow(
-                iconRes = R.drawable.duration,
-                label = "Duration",
-                value = "$durationMinutes min"
-            )
+                Spacer(Modifier.height(14.dp))
 
-            Spacer(Modifier.height(10.dp))
+                InfoRow(
+                    iconRes = R.drawable.profile,
+                    label = "Interviewer",
+                    value = interviewerName
+                )
 
-            InfoRow(
-                iconRes = R.drawable.profile,
-                label = "Date",
-                value = formattedTime
-            )
-
-            if (location.isNotBlank()) {
                 Spacer(Modifier.height(10.dp))
 
                 InfoRow(
                     iconRes = R.drawable.profile,
-                    label = "Location",
-                    value = location
+                    label = "Candidate",
+                    value = candidateName
                 )
-            }
 
-            Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(10.dp))
 
-            InfoRow(
-                iconRes = R.drawable.profile,
-                label = "Status",
-                value = statusText
-            )
-
-            if (description.isNotBlank()) {
-                Spacer(Modifier.height(16.dp))
-
-                Text(
-                    text = description,
-                    style = TextStyle(
-                        fontFamily = Poppins,
-                        fontSize = 15.sp,
-                        lineHeight = 22.sp
-                    ),
-                    color = MaterialTheme.colorScheme.secondary
+                InfoRow(
+                    iconRes = R.drawable.duration,
+                    label = "Duration",
+                    value = "$durationMinutes min"
                 )
+
+                Spacer(Modifier.height(10.dp))
+
+                InfoRow(
+                    iconRes = R.drawable.profile,
+                    label = "Date",
+                    value = formattedTime
+                )
+
+                if (location.isNotBlank()) {
+                    Spacer(Modifier.height(10.dp))
+
+                    InfoRow(
+                        iconRes = R.drawable.profile,
+                        label = "Location",
+                        value = location
+                    )
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                InfoRow(
+                    iconRes = R.drawable.profile,
+                    label = "Status",
+                    value = statusText
+                )
+
+                if (description.isNotBlank()) {
+                    Spacer(Modifier.height(16.dp))
+
+                    Text(
+                        text = description,
+                        style = TextStyle(
+                            fontFamily = Poppins,
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp
+                        ),
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
             }
         }
-    }
 
-    Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(20.dp))
 
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFEFF4FF)
-        ),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Text(
-            text = buildAnnotatedString {
-                append("Note: ")
-                addStyle(
-                    SpanStyle(fontWeight = FontWeight.SemiBold),
-                    0,
-                    5
-                )
-                append("Make sure you're in a quiet environment. Camera and microphone permissions will be requested when you join.")
-            },
-            modifier = Modifier.padding(18.dp),
-            style = TextStyle(
-                fontFamily = Poppins,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Normal
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFFEFF4FF)
             ),
-            color = MaterialTheme.colorScheme.primaryContainer
-        )
-    }
+            elevation = CardDefaults.cardElevation(0.dp)
+        ) {
+            Text(
+                text = buildAnnotatedString {
+                    append("Note: ")
+                    addStyle(
+                        SpanStyle(fontWeight = FontWeight.SemiBold),
+                        0,
+                        5
+                    )
+                    append("Make sure you're in a quiet environment. Camera and microphone permissions will be requested when you join.")
+                },
+                modifier = Modifier.padding(18.dp),
+                style = TextStyle(
+                    fontFamily = Poppins,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Normal
+                ),
+                color = MaterialTheme.colorScheme.primaryContainer
+            )
+        }
 
-    Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(24.dp))
 
-    Button(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(64.dp),
-        enabled = canJoin,
-        onClick = onStartClick,
-        shape = RoundedCornerShape(999.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            disabledContainerColor = Color(0x990A0932)
-        )
-    ) {
-        Text(
-            text = if (canJoin) "Join Interview" else "Interview Ended",
-            style = TextStyle(
-                fontFamily = Poppins,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold
-            ),
-            color = Color.White
-        )
+        Button(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp),
+            enabled = canJoin,
+            onClick = onStartClick,
+            shape = RoundedCornerShape(999.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                disabledContainerColor = Color(0x990A0932)
+            )
+        ) {
+            Text(
+                text = if (canJoin) "Join Interview" else "Interview Ended",
+                style = TextStyle(
+                    fontFamily = Poppins,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                color = Color.White
+            )
+        }
     }
 }
 

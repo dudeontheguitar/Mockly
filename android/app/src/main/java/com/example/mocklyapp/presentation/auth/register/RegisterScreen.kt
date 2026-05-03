@@ -54,7 +54,7 @@ fun RegisterScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 14.dp)
-                .padding(top = 220.dp),
+                .padding(top = 140.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
